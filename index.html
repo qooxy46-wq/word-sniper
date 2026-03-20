@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單詞狙擊手：必修二全模塊挑戰版</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        /* 徹底明亮的高科技戰術室 */
+        body {
+            margin: 0; padding: 0; background-color: #f8fafc; 
+            background-image: 
+                linear-gradient(rgba(56, 189, 248, 0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.2) 1px, transparent 1px);
+            background-size: 40px 40px;
+            color: #0f172a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; user-select: none; cursor: none; transition: background 0.3s ease; 
+        }
+
+        /* 答對時的輕微輝光 */
+        body.enlightened {
+            background-color: #ffffff; 
+            box-shadow: inset 0 0 100px rgba(34, 197, 94, 0.2); 
+            cursor: default;
+        }
+
+        #game-container { width: 100vw; height: 100vh; position: relative; perspective: 1000px; }
+
+        #ui-top {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            text-align: center; z-index: 100; background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px); padding: 10px 40px; border-radius: 12px; 
+            border: 2px solid #38bdf8; box-shadow: 0 4px 20px rgba(56, 189, 248, 0.3); transition: 0.3s;
+        }
+
+        body.enlightened #ui-top { border-color: #22c55e; box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4); }
+        #mission-text { color: #0284c7; margin: 0 0 10px 0; font-size: 20px; font-weight: bold; letter-spacing: 2px; }
+        
+        /* 獨立高亮明亮的中文釋義 */
+        .zh-highlight {
+            display: inline-block; background: #fffbeb; color: #ea580c; 
+            padding: 8px 25px; border-radius: 8px; font-size: 36px; font-weight: 900;
+            border: 3px solid #f59e0b; box-shadow: 0 0 25px rgba(245, 158, 11, 0.6);
+            letter-spacing: 2px; text-shadow: 1px 1px 0px #fff;
+        }
+
+        #round-select {
+            font-size: 16px; padding: 5px 10px; margin-bottom: 10px; border-radius: 5px;
+            border: 2px solid #38bdf8; background: #fff; color: #0284c7; font-weight: bold; cursor: pointer; outline: none;
+        }
+
+        #score-board {
+            position: absolute; top: 20px; right: 20px; z-index: 1000;
+            background: rgba(255, 255, 255, 0.95); border: 2px solid #38bdf8; color: #0f172a; 
+            padding: 10px 25px; border-radius: 6px; font-size: 20px; font-weight: bold;
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3); transition: 0.3s;
+        }
+        body.enlightened #score-board { border-color: #22c55e; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); }
+        .highlight-number { color: #0284c7; font-size: 24px; margin: 0 5px; }
+        .poop-number { color: #ef4444; font-size: 24px; margin: 0 5px; } 
+
+        #target-area { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        .target { position: absolute; width: 140px; height: 140px; border-radius: 50%; perspective: 1000px; animation: sway 4s infinite ease-in-out alternate; transition: opacity 0.8s ease; }
+        
+        /* 快捷鍵數字徽章 */
+        .shortcut-badge {
+            position: absolute; top: -15px; left: -15px;
+            background: #0ea5e9; color: #fff; width: 36px; height: 36px;
+            border-radius: 50%; font-size: 22px; line-height: 32px; 
+            text-align: center; font-weight: 900;
+            border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 50; font-family: monospace;
+        }
+
+        /* 瞬間翻轉 */
+        .target-inner { position: relative; width: 100%; height: 100%; transition: transform 0.01s linear; transform-style: preserve-3d; }
+        .target.flipped .target-inner { transform: rotateY(180deg); }
+        
+        .target-front, .target-back { position: absolute; width: 100%; height: 100%; border-radius: 50%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+        
+        .target-front { background: repeating-radial-gradient( #ffffff 0, #ffffff 15px, #ef4444 15px, #ef4444 30px, #ffffff 30px, #ffffff 45px, #ef4444 45px, #ef4444 60px, #e2e8f0 60px, #e2e8f0 70px ); border: 2px solid #cbd5e1; }
+        .target-back { background: #ef4444; transform: rotateY(180deg); border: 6px solid #b91c1c; box-sizing: border-box; color: white; font-size: 22px; font-weight: 900; text-align: center; padding: 5px; }
+        .target-text { background: rgba(255, 255, 255, 0.95); color: #0f172a; padding: 5px 12px; border-radius: 4px; font-size: 22px; font-weight: 900; border: 2px solid #38bdf8; pointer-events: none; }
+        
+        .target.selected .target-inner { transform: scale(1.1); }
+        .target.selected .target-front { box-shadow: 0 0 30px #22c55e; }
+        .target.selected .target-text { background: #22c55e; color: #fff; border-color: #fff; }
+
+        @keyframes sway { 0% { transform: translateY(-10px); } 100% { transform: translateY(10px); } }
+
+        .bullet-hole { position: absolute; width: 12px; height: 12px; background: #333; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 40; box-shadow: inset 0 2px 5px rgba(0,0,0,0.8); transition: opacity 0.5s; }
+
+        /* 迷你吃屎特效 */
+        .poop-splat { 
+            position: fixed; font-size: 40px; pointer-events: none; z-index: 10000; 
+            margin-top: 30px; margin-left: 50px; 
+            transform: translate(-50%, -50%) scale(0); 
+            animation: splat 1.5s ease-out forwards; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.3)); 
+        }
+        @keyframes splat { 
+            0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; } 
+            15% { transform: translate(-50%, -50%) scale(1.2) rotate(25deg); } 
+            30% { transform: translate(-50%, -50%) scale(1) rotate(-15deg); } 
+            80% { transform: translate(-50%, -50%) scale(1) translateY(0); opacity: 1; } 
+            100% { transform: translate(-50%, -50%) scale(1) translateY(150px); opacity: 0; } 
+        }
+
+        .flower-drop { position: fixed; top: -15%; z-index: 10001; pointer-events: none; animation: flowerFall linear forwards; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.2)); }
+        @keyframes flowerFall { 0% { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 1; } 80% { opacity: 1; } 100% { transform: translateY(120vh) rotate(360deg) scale(1.2); opacity: 0; } }
+
+        /* 滿屏懲罰巨型屎雨 */
+        .massive-poop {
+            position: fixed; pointer-events: none; z-index: 20001; 
+            animation: fallDown 3s ease-in forwards;
+            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5));
+        }
+        @keyframes fallDown { 0% { transform: translateY(-20vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(120vh) rotate(360deg); opacity: 0; } }
+
+        /* 8倍鏡 */
+        #scope { 
+            position: fixed; width: 300px; height: 300px; border: 3px solid #0284c7; border-radius: 50%; 
+            box-shadow: 0 0 0 9999px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(0,0,0,0.05); 
+            pointer-events: none; transform: translate(-50%, -50%); z-index: 999; 
+            transition: width 0.1s, height 0.1s, opacity 0.3s ease, box-shadow 0.3s ease; 
+        }
+        #scope.hidden { opacity: 0 !important; box-shadow: 0 0 0 0px rgba(0, 0, 0, 0) !important; }
+        #scope::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: rgba(239, 68, 68, 0.8); transform: translateY(-50%); }
+        #scope::after { content: ''; position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: rgba(239, 68, 68, 0.8); transform: translateX(-50%); }
+        .scope-center { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);}
+        .recoil { width: 320px !important; height: 320px !important; margin-top: -15px; }
+
+        #praise-msg { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); font-size: 90px; font-weight: 900; color: #f59e0b; text-shadow: 0px 0px 20px #fde68a, 2px 2px 0 #fff; display: none; z-index: 900; pointer-events: none; font-style: italic; white-space: nowrap; }
+
+        /* 終極結算懸浮層 */
+        #end-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(255, 255, 255, 0.95); z-index: 20000;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            cursor: default;
+        }
+        #end-title { font-size: 50px; font-weight: 900; margin-bottom: 20px; text-align: center; }
+        #end-stats { font-size: 30px; color: #334155; margin-bottom: 40px; font-weight: bold; }
+        #restart-btn {
+            padding: 15px 40px; font-size: 24px; border: none; border-radius: 8px;
+            background: #0ea5e9; color: white; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4); transition: 0.3s;
+        }
+        #restart-btn:hover { background: #0284c7; transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="scope"><div class="scope-center"></div></div>
+        
+        <div id="score-board">
+            進度: <span id="level-progress" class="highlight-number">1/50</span> | 
+            🎯 得分: <span id="total-score" class="highlight-number">0</span> |
+            💩 吃屎: <span id="poop-score" class="poop-number">0</span>
+        </div>
+
+        <div id="ui-top">
+            <select id="round-select">
+                <option value="0">Module 1 (詞彙)</option>
+                <option value="1">Module 2 (詞彙)</option>
+                <option value="2">Module 3 (詞彙)</option>
+                <option value="3">Module 4 (詞彙)</option>
+                <option value="4">Module 5 (詞彙)</option>
+                <option value="5">Module 6 (詞彙)</option>
+            </select>
+            <h2 id="mission-text">🎯 鎖定目標 (按 1-4 鍵快速射擊)</h2>
+            <div id="current-zh" class="zh-highlight">加載中...</div>
+        </div>
+
+        <div id="target-area"></div>
+        <div id="praise-msg">HEADSHOT!</div>
+    </div>
+
+    <div id="end-screen">
+        <h1 id="end-title">結算中...</h1>
+        <p id="end-stats">得分: 0 | 吃屎: 0</p>
+        <button id="restart-btn">再次挑戰本輪</button>
+    </div>
+
+    <script>
+        // 外研社（2019新版）高中必修二 單詞表分模塊數據
+        const roundsData = [
+            // Module 1
+            [
+                {"en":"maple","zh":"槭樹；楓樹"},{"en":"pudding","zh":"布丁; 甜食"},{"en":"snack","zh":"點心；小吃"},{"en":"cuisine","zh":"烹飪；菜餚"},{"en":"spicy","zh":"辛辣的"},{"en":"dare","zh":"敢於；膽敢"},{"en":"marriage","zh":"結婚,婚姻"},{"en":"wedding","zh":"婚禮"},{"en":"sort","zh":"分類,揀選"},{"en":"butcher","zh":"屠夫；屠戶"},
+                {"en":"super","zh":"極好的"},{"en":"bacon","zh":"鹹豬肉"},{"en":"sausage","zh":"香腸"},{"en":"toast","zh":"祝酒；乾杯"},{"en":"butter","zh":"黃油；奶油"},{"en":"typical","zh":"典型的"},{"en":"roast","zh":"烤好的"},{"en":"suffer","zh":"遭受(痛苦)"},{"en":"stinky","zh":"發惡臭的"},{"en":"tofu","zh":"豆腐"},
+                {"en":"horrible","zh":"極討厭的"},{"en":"gather","zh":"聚集;採集"},{"en":"bite","zh":"咬，咬傷"},{"en":"cheese","zh":"奶酪"},{"en":"someday","zh":"有朝一日"},{"en":"poison","zh":"毒藥"},{"en":"oolong","zh":"烏龍茶"},{"en":"china","zh":"瓷;瓷料"},{"en":"symbol","zh":"象徵；符號"},{"en":"opinion","zh":"意見；想法"},
+                {"en":"function","zh":"功能"},{"en":"download","zh":"下載"},{"en":"related","zh":"相關的"},{"en":"diet","zh":"飲食"},{"en":"addict","zh":"癮君子"},{"en":"tip","zh":"頂端,尖端"},{"en":"custom","zh":"風俗，習慣"},{"en":"manners","zh":"禮貌;禮儀"},{"en":"trick","zh":"花招；把戲"},{"en":"plate","zh":"盤子；碟子"},
+                {"en":"handle","zh":"柄，把手"},{"en":"differ","zh":"不同；有區別"},{"en":"tender","zh":"嫩的；柔軟的"},{"en":"steak","zh":"牛排"},{"en":"sauce","zh":"調味汁;醬"},{"en":"slightly","zh":"輕微地；稍微"},{"en":"incredibly","zh":"令人難以置信"},{"en":"pizzeria","zh":"比薩餅店"},{"en":"vegetarian","zh":"素的"},{"en":"bitter","zh":"苦的;痛苦的"},
+                {"en":"bakery","zh":"麵包店"},{"en":"cheesecake","zh":"奶酪蛋糕"},{"en":"creamy","zh":"像奶油的"},{"en":"recommend","zh":"推薦; 建議"},{"en":"acid","zh":"酸(性)的"},{"en":"attack","zh":"襲擊；攻擊"},{"en":"yoghurt","zh":"酸乳酪"},{"en":"within","zh":"範圍以內"},{"en":"lifestyle","zh":"生活方式"},{"en":"belong","zh":"屬於"},
+                {"en":"swing","zh":"旋轉，擺動"},{"en":"honey","zh":"蜂蜜"},{"en":"construction","zh":"建造；建設"},{"en":"satisfying","zh":"令人滿意的"},{"en":"homemade","zh":"自製的"},{"en":"chef","zh":"廚師"},{"en":"convenient","zh":"方便的"},{"en":"identify","zh":"確認;認出"},{"en":"recipe","zh":"烹飪法；食譜"},{"en":"blog","zh":"博客"},
+                {"en":"originally","zh":"原來;起初"},{"en":"ranking","zh":"排列; 排名"},{"en":"official","zh":"官員"},{"en":"reconstruct","zh":"修復;重建"},{"en":"salty","zh":"鹹的"},{"en":"sour","zh":"酸的"},{"en":"resist","zh":"抵抗; 抵制"},{"en":"adapt","zh":"使適應"},{"en":"breast","zh":"胸部"},{"en":"onion","zh":"洋蔥"}
+            ],
+            // Module 2
+            [
+                {"en":"honour","zh":"尊重;尊敬"},{"en":"dragon","zh":"龍"},{"en":"lunar","zh":"月球的；陰曆的"},{"en":"poet","zh":"詩人"},{"en":"harvest","zh":"收穫"},{"en":"decoration","zh":"裝飾物"},{"en":"freedom","zh":"自由"},{"en":"participate","zh":"參加,分享"},{"en":"vote","zh":"選舉,投票"},{"en":"regardless","zh":"不管,不顧"},
+                {"en":"inequality","zh":"不平等"},{"en":"fantasy","zh":"幻想；想象"},{"en":"novel","zh":"小說"},{"en":"limitless","zh":"無限的"},{"en":"regard","zh":"視為"},{"en":"literature","zh":"文學(作品)"},{"en":"envelope","zh":"信封"},{"en":"pole","zh":"桿；柱"},{"en":"handwritten","zh":"手寫的"},{"en":"regular","zh":"規則的,經常"},
+                {"en":"polar","zh":"極地的"},{"en":"roof","zh":"屋頂;車頂"},{"en":"complain","zh":"抱怨；發牢騷"},{"en":"warning","zh":"警告"},{"en":"starving","zh":"餓極了的"},{"en":"indicate","zh":"象徵；暗示"},{"en":"request","zh":"請求；要求"},{"en":"fancy","zh":"新潮的；奇特的"},{"en":"guy","zh":"傢伙,夥計"},{"en":"wave","zh":"波動；揮手"},
+                {"en":"lantern","zh":"燈籠"},{"en":"dessert","zh":"甜食"},{"en":"attract","zh":"吸引"},{"en":"firework","zh":"煙火;煙花"},{"en":"decorate","zh":"裝飾；美化"},{"en":"riddle","zh":"謎(語)"},{"en":"competition","zh":"比賽；競爭"},{"en":"formal","zh":"正式的"},{"en":"host","zh":"主人"},{"en":"occasion","zh":"場合;時刻"},
+                {"en":"editor","zh":"編輯"},{"en":"embrace","zh":"欣然接受"},{"en":"admit","zh":"承認，准許"},{"en":"effort","zh":"努力；盡力"},{"en":"loss","zh":"損失"},{"en":"eve","zh":"前夕；前夜"},{"en":"software","zh":"軟件"},{"en":"adult","zh":"成人"},{"en":"token","zh":"象徵; 標誌"},{"en":"process","zh":"進程；過程"},
+                {"en":"retired","zh":"已退休的"},{"en":"exist","zh":"存在"},{"en":"overseas","zh":"在國外;海外"},{"en":"global","zh":"全球的"},{"en":"citizen","zh":"公民；市民"},{"en":"nationality","zh":"國籍"},{"en":"audience","zh":"聽眾"},{"en":"interact","zh":"互動"},{"en":"joy","zh":"樂事，樂趣"},{"en":"phenomenon","zh":"現象"}
+            ],
+            // Module 3
+            [
+                {"en":"surfing","zh":"衝浪運動"},{"en":"represent","zh":"代表"},{"en":"goal","zh":"球門"},{"en":"basis","zh":"基礎；根據"},{"en":"equipment","zh":"裝備，設備"},{"en":"content","zh":"滿意的"},{"en":"plastic","zh":"塑料的"},{"en":"factor","zh":"因素;要素"},{"en":"defend","zh":"防守"},{"en":"twist","zh":"擰,扭曲"},
+                {"en":"soldier","zh":"軍人; 士兵"},{"en":"conflict","zh":"衝突；矛盾"},{"en":"death","zh":"死；死亡"},{"en":"assure","zh":"使確信;保證"},{"en":"chart","zh":"圖；圖表"},{"en":"ideal","zh":"理想的"},{"en":"display","zh":"展示；陳列"},{"en":"monitor","zh":"監測"},{"en":"setting","zh":"背景"},{"en":"adjustable","zh":"可調整的"},
+                {"en":"available","zh":"可獲得的"},{"en":"skip","zh":"蹦蹦跳跳;跳繩"},{"en":"plank","zh":"木板"},{"en":"balance","zh":"使平衡"},{"en":"bar","zh":"長條，欄杆"},{"en":"upper","zh":"較高的"},{"en":"bone","zh":"骨頭"},{"en":"involve","zh":"包括；涉及"},{"en":"master","zh":"主人，僱主 "},{"en":"response","zh":"回答，答覆"},
+                {"en":"interpret","zh":"詮釋，解釋"},{"en":"data","zh":"數據，資料"},{"en":"label","zh":"標籤;標記"},{"en":"asthma","zh":"氣喘;哮喘"},{"en":"power","zh":"供給動力"},{"en":"network","zh":"網絡"},{"en":"tension","zh":"緊張關係"},{"en":"disappear","zh":"消失"},{"en":"gorilla","zh":"大猩猩"},{"en":"sweaty","zh":"滿是汗的"},
+                {"en":"ache","zh":"痛, 疼痛"},{"en":"inspire","zh":"鼓舞，激勵"},{"en":"am","zh":"上午;午前"},{"en":"persuade","zh":"說服,勸說"},{"en":"champion","zh":"冠軍"},{"en":"ultimate","zh":"最後的；最終的"}
+            ],
+            // Module 4
+            [
+                {"en":"opera","zh":"歌劇"},{"en":"movement","zh":"運動"},{"en":"aspect","zh":"方面"},{"en":"revenge","zh":"報仇，復仇"},{"en":"prince","zh":"王子；親王"},{"en":"version","zh":"改編本；版本"},{"en":"string","zh":"線，繩子"},{"en":"exaggerated","zh":"誇張的"},{"en":"mime","zh":"啞劇動作表現"},{"en":"female","zh":"女的；女性的"},
+                {"en":"whip","zh":"鞭子; 抽打"},{"en":"technique","zh":"技巧；手法"},{"en":"transform","zh":"轉化，轉變"},{"en":"universe","zh":"宇宙"},{"en":"backflip","zh":"直體後空翻"},{"en":"incredible","zh":"難以置信的"},{"en":"dazzling","zh":"耀眼的"},{"en":"energetic","zh":"精力旺盛的"},{"en":"clap","zh":"拍手; 鼓掌"},{"en":"edge","zh":"邊，邊緣"},
+                {"en":"emotion","zh":"感情；情緒"},{"en":"anger","zh":"怒,憤怒"},{"en":"grief","zh":"悲傷，悲痛"},{"en":"combine","zh":"結合，聯合"},{"en":"poetry","zh":"詩歌"},{"en":"explosive","zh":"爆炸物"},{"en":"applaud","zh":"鼓掌歡迎;稱讚"},{"en":"grateful","zh":"感激的"},{"en":"extremely","zh":"極其,非常"},{"en":"overcome","zh":"克服; 戰勝"},
+                {"en":"ballet","zh":"芭蕾舞"},{"en":"absorbed","zh":"專心致志"},{"en":"romantic","zh":"浪漫的"},{"en":"comedy","zh":"喜劇"},{"en":"documentary","zh":"紀錄片"},{"en":"absolutely","zh":"絕對地；完全地"},{"en":"episode","zh":"片段; 一集"},{"en":"appealing","zh":"有吸引力的"},{"en":"definitely","zh":"無疑地"},{"en":"plot","zh":"情節"},
+                {"en":"rude","zh":"粗魯的；無禮的"},{"en":"transport","zh":"交通工具"},{"en":"arrangement","zh":"安排,佈置"},{"en":"brief","zh":"簡短的；簡潔的"},{"en":"cinematic","zh":"電影的"},{"en":"turkey","zh":"火雞"},{"en":"storytelling","zh":"講故事"},{"en":"wonderland","zh":"仙境"},{"en":"escape","zh":"逃跑；逃避"},{"en":"disappointed","zh":"失望的"},
+                {"en":"epic","zh":"史詩，敘事詩"},{"en":"extent","zh":"程度"},{"en":"original","zh":"原來的；最初的"},{"en":"awkward","zh":"尷尬的"},{"en":"behave","zh":"表現，舉動"},{"en":"normal","zh":"正常的；一般的"},{"en":"responsibility","zh":"責任"},{"en":"absence","zh":"缺乏，不存在"}
+            ],
+            // Module 5
+            [
+                {"en":"destination","zh":"目的地；終點"},{"en":"gallery","zh":"陳列室; 畫廊"},{"en":"indigenous","zh":"土生土長的"},{"en":"kangaroo","zh":"大袋鼠"},{"en":"crocodile","zh":"鱷魚"},{"en":"quest","zh":"探索，追求"},{"en":"quit","zh":"離開，辭去"},{"en":"profession","zh":"職業"},{"en":"previous","zh":"以前的"},{"en":"route","zh":"路線"},
+                {"en":"aboard","zh":"在船(飛機)上"},{"en":"landscape","zh":"風景；景色"},{"en":"dramatic","zh":"戲劇性的"},{"en":"hike","zh":"遠足;徒步旅行"},{"en":"volcano","zh":"火山"},{"en":"embassy","zh":"使館"},{"en":"visa","zh":"簽證"},{"en":"budget","zh":"預算"},{"en":"chain","zh":"鏈條，鐵鏈"},{"en":"transfer","zh":"換乘; 轉移"},
+                {"en":"luggage","zh":"行李"},{"en":"currency","zh":"貨幣;現金"},{"en":"credit","zh":"信用;信譽"},{"en":"souvenir","zh":"紀念品"},{"en":"cash","zh":"現金,兌現"},{"en":"flight","zh":"飛行；班機"},{"en":"remote","zh":"遙遠的"},{"en":"engage","zh":"參與; 從事"},{"en":"cafe","zh":"咖啡館"},{"en":"soccer","zh":"足球"},
+                {"en":"continent","zh":"大陸；洲"},{"en":"vehicle","zh":"交通工具"},{"en":"deer","zh":"鹿"},{"en":"mass","zh":"大量的"},{"en":"gravy","zh":"(調味)肉汁"}
+            ],
+            // Module 6
+            [
+                {"en":"shark","zh":"鯊魚"},{"en":"scare","zh":"驚嚇"},{"en":"fin","zh":"(魚)鰭"},{"en":"dive","zh":"潛水"},{"en":"target","zh":"目標；對象"},{"en":"fortunately","zh":"幸運地；幸虧"},{"en":"extinction","zh":"滅絕；絕種"},{"en":"attitude","zh":"態度"},{"en":"devote","zh":"付出,奉獻"},{"en":"ocean","zh":"大海；海洋"},
+                {"en":"highlight","zh":"最精彩的部分"},{"en":"cruelty","zh":"殘酷，殘忍"},{"en":"hunting","zh":"狩獵"},{"en":"presentation","zh":"演出;頒獎儀式"},{"en":"reserve","zh":"保護區"},{"en":"staff","zh":"全體職員"},{"en":"establish","zh":"建立；創立 "},{"en":"damage","zh":"損失；損害"},{"en":"drought","zh":"乾旱;旱災"},{"en":"flood","zh":"洪水"},
+                {"en":"affect","zh":"影響"},{"en":"supply","zh":"供給,供應"},{"en":"restore","zh":"恢復"},{"en":"adopt","zh":"採納；採用"},{"en":"sustainable","zh":"可持續的"},{"en":"bulb","zh":"電燈泡"},{"en":"renewable","zh":"可再生的"},{"en":"carbon","zh":"碳"},{"en":"greenhouse","zh":"溫室;暖房"},{"en":"reusable","zh":"可重複使用的"},
+                {"en":"brochure","zh":"小冊子"},{"en":"reduce","zh":"減少"},{"en":"solar","zh":"太陽的"},{"en":"release","zh":"釋放;排放"},{"en":"smog","zh":"煙霧"},{"en":"fog","zh":"霧"},{"en":"severe","zh":"嚴峻的"},{"en":"infection","zh":"感染;傳染病"},{"en":"lecture","zh":"演講;講課"},{"en":"permission","zh":"允許，同意"},
+                {"en":"slide","zh":"滑，滑行"},{"en":"majority","zh":"大多數"},{"en":"false","zh":"假的"},{"en":"amount","zh":"數量"},{"en":"device","zh":"裝置;設備"},{"en":"mode","zh":"模式；狀態"},{"en":"electricity","zh":"電，電流"},{"en":"leak","zh":"漏; 滲"},{"en":"appliance","zh":"(家用)電器"},{"en":"remove","zh":"遷移；搬遷"},
+                {"en":"plug","zh":"插上(插頭)"},{"en":"litre","zh":"升; 公升"},{"en":"campaign","zh":"戰役；運動"},{"en":"urge","zh":"催促;力勸"},{"en":"canteen","zh":"食堂，餐廳"},{"en":"concerned","zh":"關心的；擔心的"},{"en":"contribute","zh":"(為…)做貢獻"},{"en":"average","zh":"平均數,平均的"}
+            ]
+        ];
+
+        const praises = ["HEADSHOT!", "精準命中!", "完美擊殺!", "一發入魂!", "TARGET DOWN!"];
+
+        let currentRoundIndex = 0;
+        let vocabData = roundsData[currentRoundIndex];
+        let currentLevel = 0;
+        let levelCompleted = false; 
+        
+        let score = 0;
+        let poopCount = 0; 
+        let firstTry = true; 
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function playGunshot() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function speakVoice(text, isSuper = false) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            if(isSuper) {
+                utterance.rate = 1.1;
+                utterance.pitch = 1.5; 
+            } else {
+                utterance.rate = 0.9;
+            }
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function throwPoop(x, y) {
+            const poop = document.createElement('div');
+            poop.className = 'poop-splat';
+            poop.textContent = '💩';
+            poop.style.left = x + 'px'; poop.style.top = y + 'px';
+            document.body.appendChild(poop);
+            setTimeout(() => poop.remove(), 1500);
+        }
+
+        // 地獄模式：滿屏巨型屎雨
+        function throwMassivePoopPunishment() {
+            for(let i = 0; i < 40; i++) {
+                setTimeout(() => {
+                    const poop = document.createElement('div');
+                    poop.className = 'massive-poop';
+                    poop.textContent = '💩';
+                    poop.style.left = (Math.random() * 100) + 'vw';
+                    poop.style.fontSize = (Math.random() * 80 + 60) + 'px';
+                    document.body.appendChild(poop);
+                    setTimeout(() => poop.remove(), 3500);
+                }, i * 80); 
+            }
+        }
+
+        // 天堂模式：滿屏花朵
+        function triggerFlowerShower() {
+            const flowers = ['🌸', '🌹', '🌻', '🌺', '🌷', '🌼'];
+            for(let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const f = document.createElement('div'); f.className = 'flower-drop';
+                    f.textContent = flowers[Math.floor(Math.random() * flowers.length)];
+                    f.style.left = Math.random() * 100 + 'vw';
+                    f.style.fontSize = (Math.random() * 40 + 30) + 'px';
+                    f.style.animationDuration = (Math.random() * 3 + 2) + 's'; 
+                    document.body.appendChild(f);
+                    setTimeout(() => f.remove(), 6000);
+                }, Math.random() * 2000); 
+            }
+        }
+
+        function updateScoreBoard() {
+            document.getElementById('total-score').textContent = score;
+            document.getElementById('poop-score').textContent = poopCount;
+            document.getElementById('level-progress').textContent = `${currentLevel + 1}/${vocabData.length}`;
+        }
+
+        document.getElementById('round-select').addEventListener('change', (e) => {
+            currentRoundIndex = parseInt(e.target.value);
+            vocabData = roundsData[currentRoundIndex];
+            e.target.blur(); // 移除焦點，防止鍵盤快捷鍵衝突
+            resetGame();
+        });
+
+        function resetGame() {
+            document.getElementById('end-screen').style.display = 'none';
+            document.getElementById('scope').style.display = 'block';
+            document.body.style.cursor = 'none';
+            currentLevel = 0; score = 0; poopCount = 0; 
+            updateScoreBoard(); loadLevel(0);
+        }
+
+        document.getElementById('restart-btn').addEventListener('click', resetGame);
+
+        const container = document.getElementById('game-container');
+        const scope = document.getElementById('scope');
+        const targetArea = document.getElementById('target-area');
+        const zhDisplay = document.getElementById('current-zh');
+        const praiseMsg = document.getElementById('praise-msg');
+
+        document.addEventListener('mousemove', (e) => {
+            if (!document.body.classList.contains('enlightened')) { 
+                scope.style.left = e.clientX + 'px'; scope.style.top = e.clientY + 'px'; 
+            }
+        });
+
+        // 監聽全局鼠標點擊（觸發槍聲和後坐力）
+        document.addEventListener('mousedown', (e) => {
+            if(levelCompleted) return; 
+            if(e.target.closest('#ui-top') || e.target.closest('#score-board')) return;
+
+            playGunshot(); 
+            if (!document.body.classList.contains('enlightened')) {
+                scope.classList.add('recoil'); setTimeout(() => scope.classList.remove('recoil'), 100);
+            }
+
+            const hole = document.createElement('div');
+            hole.className = 'bullet-hole'; hole.style.left = e.clientX + 'px'; hole.style.top = e.clientY + 'px';
+            targetArea.appendChild(hole);
+        });
+
+        // 🌟 鍵盤快捷鍵邏輯 🌟
+        document.addEventListener('keydown', (e) => {
+            if(levelCompleted || document.getElementById('end-screen').style.display === 'flex') return;
+            const key = e.key;
+            if(['1', '2', '3', '4'].includes(key)) {
+                const index = parseInt(key) - 1;
+                const targets = document.querySelectorAll('.target');
+                if(targets[index]) {
+                    const rect = targets[index].getBoundingClientRect();
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    
+                    const event = new MouseEvent('mousedown', {
+                        bubbles: true, cancelable: true,
+                        clientX: centerX, clientY: centerY
+                    });
+                    targets[index].dispatchEvent(event);
+                }
+            }
+        });
+
+        function shuffle(array) { return array.sort(() => Math.random() - 0.5); }
+
+        function loadLevel(index) {
+            levelCompleted = false;
+            firstTry = true; 
+
+            document.body.classList.remove('enlightened');
+            scope.classList.remove('hidden');
+
+            targetArea.innerHTML = ''; 
+            praiseMsg.style.display = 'none';
+            
+            updateScoreBoard();
+
+            const currentData = vocabData[index];
+            zhDisplay.textContent = currentData.zh;
+
+            let optionsObj = [currentData];
+            let distractors = vocabData.filter(v => v.en !== currentData.en);
+            distractors = shuffle(distractors).slice(0, 3);
+            optionsObj = shuffle(optionsObj.concat(distractors));
+
+            const colWidth = 100 / 4; 
+
+            optionsObj.forEach((wordObj, i) => {
+                const target = document.createElement('div'); target.className = 'target';
+                const inner = document.createElement('div'); inner.className = 'target-inner';
+                const front = document.createElement('div'); front.className = 'target-front';
+                
+                // 添加數字快捷鍵提示標籤
+                const badge = document.createElement('div'); badge.className = 'shortcut-badge';
+                badge.textContent = i + 1;
+                front.appendChild(badge);
+
+                const span = document.createElement('span'); span.className = 'target-text';
+                span.textContent = wordObj.en; front.appendChild(span);
+                const back = document.createElement('div'); back.className = 'target-back';
+                back.textContent = wordObj.zh;
+
+                inner.appendChild(front); inner.appendChild(back); target.appendChild(inner);
+                
+                const leftPos = (i * colWidth) + (colWidth / 2);
+                const topPos = Math.random() * 45 + 25; 
+                target.style.left = `calc(${leftPos}% - 70px)`; target.style.top = topPos + '%';
+                target.style.animationDelay = (Math.random() * 2) + 's';
+
+                target.addEventListener('mousedown', (e) => {
+                    if (levelCompleted) return; 
+                    speakVoice(wordObj.en); 
+
+                    if (wordObj.en !== currentData.en) {
+                        firstTry = false; 
+                        poopCount++; 
+                        updateScoreBoard(); 
+
+                        target.classList.add('flipped');
+                        throwPoop(e.clientX, e.clientY);
+                        
+                        // 0.2秒極限瞬記後立刻翻回英文
+                        setTimeout(() => {
+                            target.classList.remove('flipped');
+                        }, 200);
+
+                    } else {
+                        // 一發入魂，自動換彈
+                        levelCompleted = true;
+                        document.querySelectorAll('.target').forEach(t => t.classList.remove('selected'));
+                        target.classList.add('selected');
+
+                        let earnedPoint = false;
+                        if (firstTry) {
+                            score += 1;
+                            earnedPoint = true;
+                        }
+                        updateScoreBoard();
+
+                        // 答對時屏幕輝光
+                        document.body.classList.add('enlightened');
+                        scope.classList.add('hidden');
+                        
+                        document.querySelectorAll('.target:not(.selected)').forEach(t => t.style.opacity = '0');
+                        document.querySelectorAll('.bullet-hole').forEach(h => h.style.opacity = '0');
+
+                        if (earnedPoint && score > 0 && score % 10 === 0) {
+                            praiseMsg.textContent = "🔥 十連絕殺！🔥";
+                            praiseMsg.style.display = 'block';
+                            speakVoice("Godlike!", true); 
+                        } else {
+                            confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 }, colors: ['#0284c7', '#facc15', '#22c55e'] });
+                            
+                            if (!firstTry) {
+                                praiseMsg.textContent = "終於擊殺！下次爭取一發入魂！";
+                                praiseMsg.style.color = "#f87171"; 
+                            } else {
+                                praiseMsg.textContent = praises[Math.floor(Math.random() * praises.length)];
+                                praiseMsg.style.color = "#f59e0b"; 
+                            }
+                            praiseMsg.style.display = 'block';
+                        }
+
+                        setTimeout(() => {
+                            if (currentLevel < vocabData.length - 1) {
+                                currentLevel++;
+                                loadLevel(currentLevel);
+                            } else {
+                                showEndScreen();
+                            }
+                        }, 1500);
+                    }
+                });
+                targetArea.appendChild(target);
+            });
+        }
+
+        // 終極天堂地獄結算機制
+        function showEndScreen() {
+            const endScreen = document.getElementById('end-screen');
+            const endTitle = document.getElementById('end-title');
+            const endStats = document.getElementById('end-stats');
+            
+            document.body.style.cursor = 'default';
+            document.getElementById('scope').style.display = 'none';
+
+            endStats.textContent = `🎯 最終得分：${score}  |  💩 吃屎總數：${poopCount}`;
+            
+            if (poopCount > score) {
+                // 地獄懲罰
+                endTitle.textContent = "🚨 戰術翻車！吃屎吃到飽！太菜了吧老鐵！ 🚨";
+                endTitle.style.color = "#ef4444";
+                throwMassivePoopPunishment();
+                speakVoice("Game over!", true);
+            } else if (score > poopCount) {
+                // 天堂獎勵
+                endTitle.textContent = "🏆 詞彙特種兵，YYDS！這語感簡直絕絕子！ 🏆";
+                endTitle.style.color = "#f59e0b";
+                triggerFlowerShower();
+                triggerFlowerShower(); 
+                confetti({ particleCount: 300, spread: 160, origin: { y: 0.3 } });
+                speakVoice("Unbelievable! You are the Best!", true);
+            } else {
+                // 五五開
+                endTitle.textContent = "⚖️ 五五開！差一點就被屎淹沒了！ ⚖️";
+                endTitle.style.color = "#3b82f6";
+            }
+            
+            endScreen.style.display = 'flex';
+        }
+
+        document.body.addEventListener('click', () => {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }, { once: true });
+
+        loadLevel(currentLevel);
+    </script>
+</body>
+</html>
