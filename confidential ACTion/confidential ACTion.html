@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>词汇狙击行动 - 跨平台计分版 (1-20章)</title>
+    <style>
+        /* 基础重置，确保盒模型在手机上不溢出 */
+        * { box-sizing: border-box; }
+        
+        /* 暗黑硬核游戏环境 */
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #050608; color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; cursor: crosshair; 
+            touch-action: manipulation; /* 彻底禁用移动端双击缩放 */
+        }
+
+        /* 顶部控制台 & 积分板 */
+        .top-controls {
+            position: absolute; top: 15px; right: 20px; z-index: 50; 
+            display: flex; gap: 15px; align-items: center;
+        }
+        .scoreboard {
+            background: rgba(15, 15, 15, 0.95); border: 2px solid #ff9800;
+            color: #ccc; padding: 8px 15px; font-size: 18px; font-weight: bold;
+            border-radius: 5px; box-shadow: 0 0 15px rgba(255, 152, 0, 0.3);
+            display: flex; align-items: center; gap: 10px;
+        }
+        #score-val { color: #4caf50; font-size: 24px; text-shadow: 0 0 10px #4caf50; }
+        #poop-val { color: #ff4444; font-size: 24px; text-shadow: 0 0 10px #ff4444; }
+
+        .btn-control {
+            background: rgba(40, 40, 40, 0.9); border: 1px solid #4caf50;
+            color: #4caf50; padding: 8px 15px; font-size: 15px; font-weight: bold;
+            border-radius: 4px; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.2);
+        }
+        .btn-control:active { transform: scale(0.95); }
+        .btn-undo { border-color: #ff9800; color: #ff9800; }
+
+        /* 视野暗角与准星 */
+        .scope-vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 35%, rgba(0,0,0,0.95) 85%);
+            pointer-events: none; z-index: 10;
+        }
+        .crosshair-x { position: fixed; top: 50%; left: 0; width: 100%; height: 1px; background: rgba(255, 50, 50, 0.6); pointer-events: none; z-index: 12; }
+        .crosshair-y { position: fixed; top: 0; left: 50%; width: 1px; height: 100%; background: rgba(255, 50, 50, 0.6); pointer-events: none; z-index: 12; }
+
+        /* 写实枪械 */
+        .gun-model {
+            position: fixed; bottom: -100px; right: 2%; width: 300px; height: 400px;
+            background: linear-gradient(105deg, transparent 40%, #1a1a1a 41%, #2a2a2a 45%, #111 50%),
+                        linear-gradient(to right, #000 0%, #333 50%, #000 100%);
+            border-top-left-radius: 20px; box-shadow: -10px -10px 30px rgba(0,0,0,0.9);
+            pointer-events: none; z-index: 5; transform: scale(0.65) rotate(-15deg);
+        }
+
+        /* 左侧情报板 (PC端布局) */
+        .intel-panel {
+            position: absolute; top: 20px; left: 20px; width: 240px; height: 85vh;
+            background: rgba(10, 15, 10, 0.95); border: 1px solid #4caf50;
+            border-radius: 2px; padding: 15px; z-index: 20; overflow-y: auto;
+        }
+        .intel-panel::-webkit-scrollbar { width: 4px; }
+        .intel-panel::-webkit-scrollbar-thumb { background: #4caf50; }
+        .intel-title {
+            color: #4caf50; font-size: 16px; font-weight: bold; text-align: center;
+            margin-bottom: 10px; border-bottom: 1px dashed #4caf50; padding-bottom: 10px;
+            position: sticky; top: 0; background: rgba(10, 15, 10, 0.95);
+        }
+        .vocab-list { list-style: none; padding: 0; margin: 0; font-size: 14px; line-height: 1.8; }
+        .vocab-item {
+            display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer; padding: 4px 5px;
+        }
+        .vocab-item:active { background: rgba(76, 175, 80, 0.4); }
+        .vocab-en { color: #dcdcdc; font-weight: bold; }
+        .vocab-zh { color: #888; pointer-events: none; }
+
+        /* 任务主控台 (PC端布局) */
+        .mission-panel {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 15, 15, 0.95); border: 1px solid #333;
+            padding: 20px 30px; text-align: left;
+            z-index: 20; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.9);
+            width: 55%; max-height: 40vh; overflow-y: auto; border-top: 3px solid #ff4444;
+        }
+        .mission-panel::-webkit-scrollbar { width: 4px; }
+        .mission-panel::-webkit-scrollbar-thumb { background: #ff4444; }
+
+        .mission-title { color: #ff4444; font-size: 18px; font-weight: bold; margin-bottom: 10px; letter-spacing: 1px; }
+        .en-paragraph { font-size: 18px; line-height: 1.6; color: #e0e0e0; margin-bottom: 10px; }
+        .zh-paragraph { font-size: 14px; line-height: 1.6; color: #888; font-family: 'Microsoft YaHei', sans-serif; }
+
+        .clickable-word { cursor: pointer; border-bottom: 1px dashed transparent; }
+        .clickable-word:active { color: #4caf50; border-bottom: 1px dashed #4caf50; }
+        .blank-space { display: inline-block; width: 80px; border-bottom: 3px solid #ff4444; margin: 0 5px; vertical-align: bottom; }
+        
+        .zh-clickable { color: #4caf50; border-bottom: 1px dashed #4caf50; cursor: pointer; margin: 0 2px; }
+        .zh-clickable:active { color: #ff9800; border-bottom: 1px dashed #ff9800; }
+
+        /* 标靶区域 (PC端布局) */
+        .target-zone {
+            position: absolute; top: 60vh; left: 300px; width: calc(100% - 340px);
+            display: flex; justify-content: space-evenly; align-items: center; z-index: 30;
+        }
+
+        .target-container { perspective: 1000px; width: 110px; height: 120px; cursor: crosshair; user-select: none; }
+        .target-inner {
+            position: relative; width: 100%; height: 100%;
+            transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .target-container.flipped .target-inner { transform: rotateY(180deg); }
+        .target-container:active:not(.flipped) .target-inner { transform: scale(0.85); transition: transform 0.05s; }
+
+        .target-front, .target-back {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 2px; display: flex; justify-content: center; align-items: center;
+        }
+        .target-front { background-color: #d7c9a8; border: 1px solid #8b7d60; box-shadow: 2px 5px 15px rgba(0,0,0,0.9); }
+        .target-front::before {
+            content: ''; position: absolute; width: 80px; height: 80px; border-radius: 50%;
+            background: repeating-radial-gradient(circle, #111 0, #111 10px, #d7c9a8 10px, #d7c9a8 20px); z-index: 1;
+        }
+        .target-text {
+            position: relative; z-index: 2; font-weight: 900; color: #ff2a2a; font-size: 16px;
+            text-shadow: 1px 1px 0px #000, -1px -1px 0px #fff; background: rgba(215, 201, 168, 0.9);
+            padding: 2px 5px; border-radius: 3px;
+        }
+        .target-back {
+            background-color: #3e2723; border: 2px solid #5d4037; transform: rotateY(180deg);
+            flex-direction: column; color: #fff; box-shadow: 2px 5px 15px rgba(0,0,0,0.9);
+        }
+        .poop-bg { position: absolute; font-size: 50px; opacity: 0.15; z-index: 1; }
+        .target-back-content { z-index: 2; text-align: center; }
+        .target-back-word { font-size: 14px; font-weight: bold; color: #ffab91; margin-bottom: 3px; }
+        .target-back-zh { font-size: 14px; font-weight: bold; }
+        .target-penalty { font-size: 10px; color: #ff5252; margin-top: 5px; border: 1px solid #ff5252; padding: 2px; }
+
+        .flying-poop { position: fixed; font-size: 40px; z-index: 100; pointer-events: none; transition: all 0.4s cubic-bezier(0.1, 0.8, 0.3, 1); }
+        .ultimate-poop { position: fixed; z-index: 999; pointer-events: none; animation: fallDrop 1s linear forwards; }
+        @keyframes fallDrop { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(120vh) rotate(720deg); opacity: 0; } }
+
+        #fireworksCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+
+        /* ======================================================== */
+        /* 📱 移动端自适应布局 (Mobile Responsive Design) */
+        /* ======================================================== */
+        @media screen and (max-width: 768px) {
+            .top-controls {
+                top: 5px; left: 5px; right: 5px; 
+                justify-content: space-between; gap: 5px;
+            }
+            .scoreboard { padding: 4px 10px; font-size: 14px; }
+            #score-val, #poop-val { font-size: 16px; }
+            .btn-control { padding: 5px 8px; font-size: 12px; }
+            
+            /* 任务主控台：顶部居中 */
+            .mission-panel {
+                top: 50px; left: 5%; width: 90%; transform: none; 
+                padding: 12px 15px; max-height: 35vh;
+            }
+            .en-paragraph { font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
+            .zh-paragraph { font-size: 13px; line-height: 1.5; }
+            .blank-space { width: 60px; }
+
+            /* 战术面板：移至中间，双列显示 */
+            .intel-panel {
+                top: calc(50px + 35vh + 10px); left: 5%; width: 90%; height: 18vh; 
+                padding: 10px;
+            }
+            .vocab-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+            .vocab-item { border-bottom: none; background: rgba(255,255,255,0.08); border-radius: 4px; }
+            .intel-title { font-size: 14px; padding-bottom: 5px; margin-bottom: 5px; }
+
+            /* 靶纸区域：底部平铺，允许换行 */
+            .target-zone {
+                top: calc(50px + 35vh + 10px + 18vh + 10px); left: 0; width: 100%; 
+                flex-wrap: wrap; gap: 10px; justify-content: center;
+            }
+            .target-container { width: 85px; height: 95px; }
+            .target-front::before { width: 60px; height: 60px; }
+            .target-text { font-size: 13px; padding: 2px 4px; }
+            .target-back-word, .target-back-zh { font-size: 13px; }
+            .poop-bg { font-size: 35px; }
+
+            /* 隐藏十字准星和枪械，避免在手机上遮挡视线 */
+            .crosshair-x, .crosshair-y { display: none; }
+            .gun-model { transform: scale(0.3) rotate(-15deg); bottom: -150px; right: -80px; opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-controls">
+        <div class="scoreboard">
+            🎯 <span id="score-val">0</span> | 💩 <span id="poop-val">0</span>
+        </div>
+        <div style="display:flex; gap:5px;">
+            <button class="btn-control btn-undo" onclick="prevLevel()">⏪ 撤回</button>
+            <button class="btn-control" onclick="readFullText()">🔊 朗读</button>
+        </div>
+    </div>
+
+    <div class="scope-vignette"></div>
+    <div class="crosshair-x"></div>
+    <div class="crosshair-y"></div>
+    <div class="gun-model"></div>
+
+    <div class="intel-panel">
+        <div class="intel-title">/// 战术情报 ///</div>
+        <ul class="vocab-list" id="intel-list"></ul>
+    </div>
+
+    <div class="mission-panel" id="mission-panel"></div>
+    <div class="target-zone" id="target-zone"></div>
+    <canvas id="fireworksCanvas"></canvas>
+
+    <script>
+        // ==========================================
+        // 游戏状态 & 音效模块
+        // ==========================================
+        let currentLevelIndex = 0;
+        let currentSpeakingItem = ""; 
+        let score = 0;          
+        let poopScore = 0;      
+        let hasFailedLevel = false; 
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playGunshot() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const bufferSize = audioCtx.sampleRate * 0.5;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+            
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            const noiseFilter = audioCtx.createBiquadFilter(); noiseFilter.type = 'lowpass'; noiseFilter.frequency.value = 1000;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(1, audioCtx.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioCtx.destination);
+            
+            const osc = audioCtx.createOscillator(); osc.type = 'square';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            const oscGain = audioCtx.createGain();
+            oscGain.gain.setValueAtTime(1, audioCtx.currentTime);
+            oscGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(oscGain); oscGain.connect(audioCtx.destination);
+            
+            noise.start(audioCtx.currentTime); osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playSplatSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // ==========================================
+        // 题库数据 (完整20章)
+        // ==========================================
+        const gameLevels = [
+            { id: 1, codeName: "第1章：异变降临", correctAnswer: "change", options: ["change", "promise", "doubt", "anxious"], paragraphEn: "I imagine a big <span class='blank-space'></span> in my world. I promise to take my time and look around. I feel anxious, but I care about my life. They suggest I should decide quickly. I doubt if it is safe here.", paragraphZh: "我想象着我的世界发生巨大的改变。我承诺花时间环顾四周。我感到焦虑，但我真正在意我的生命。他们建议我应该立刻做决定。我怀疑这里是否安全。", intel: [{ en: "change", zh: "改变" }, { en: "imagine", zh: "想象" }, { en: "take", zh: "携带、花时间" }, { en: "time", zh: "时间" }, { en: "promise", zh: "承诺" }, { en: "look", zh: "看" }, { en: "anxious", zh: "焦虑的、焦虑" }, { en: "care", zh: "关心、在意" }, { en: "suggest", zh: "建议" }, { en: "decide", zh: "决定" }, { en: "doubt", zh: "怀疑" }, { en: "safe", zh: "安全的、安全" }] },
+            { id: 2, codeName: "第2章：暗夜狂奔", correctAnswer: "courage", options: ["courage", "surprise", "work", "angry"], paragraphEn: "I need <span class='blank-space'></span> to run away before dark. I am worried and angry about this work. I do not expect to return here. To my surprise, I see a light of hope.", paragraphZh: "我需要勇气在天黑之前逃跑。我对这项工作感到担忧和愤怒。我不指望能回到这里。让我惊讶的是，我看到了一丝希望的光芒。", intel: [{ en: "courage", zh: "勇气" }, { en: "run", zh: "跑步、逃跑" }, { en: "before", zh: "在…之前" }, { en: "worried", zh: "担心的、担忧" }, { en: "angry", zh: "生气的、愤怒" }, { en: "work", zh: "工作" }, { en: "expect", zh: "指望、期待" }, { en: "return", zh: "返回、回到" }, { en: "surprise", zh: "惊讶" }, { en: "hope", zh: "希望" }] },
+            { id: 3, codeName: "第3章：绝命抉择", correctAnswer: "choice", options: ["choice", "plan", "friend", "leave"], paragraphEn: "My friend and I make a plan to leave. It is a hard <span class='blank-space'></span>, but I believe it is right. I explain why we must accept this. I feel proud when I realize our strength.", paragraphZh: "我的朋友和我制定了一个离开的计划。这是一个艰难的选择，但我相信它是对的。我解释了为什么我们必须接受这个。当我意识到我们的力量时，我感到骄傲。", intel: [{ en: "friend", zh: "朋友" }, { en: "plan", zh: "计划" }, { en: "leave", zh: "离开" }, { en: "choice", zh: "选择" }, { en: "believe", zh: "相信" }, { en: "explain", zh: "解释" }, { en: "accept", zh: "接受" }, { en: "proud", zh: "骄傲的、骄傲" }, { en: "realize", zh: "意识到、实现" }, { en: "strength", zh: "力量" }] },
+            { id: 4, codeName: "第4章：血战到底", correctAnswer: "challenge", options: ["challenge", "effort", "success", "regret"], paragraphEn: "We face a new <span class='blank-space'></span> and must make an effort. I admit it is hard, but we will continue until we win. We will not regret taking this chance. I feel excited to enjoy our success.", paragraphZh: "我们面临新的挑战，必须做出努力。我承认这很难，但我们会继续直到胜利。我们不会因为抓住这个机会而后悔。我感到很激动能享受我们的成功。", intel: [{ en: "challenge", zh: "挑战" }, { en: "effort", zh: "努力" }, { en: "admit", zh: "承认" }, { en: "continue", zh: "继续" }, { en: "until", zh: "直到" }, { en: "regret", zh: "遗憾、后悔" }, { en: "chance", zh: "机会" }, { en: "excited", zh: "激动的、激动" }, { en: "enjoy", zh: "享受" }, { en: "success", zh: "成功" }] },
+            { id: 5, codeName: "第5章：黎明防线", correctAnswer: "responsibility", options: ["responsibility", "reason", "confident", "serious"], paragraphEn: "I am confident we can discover the truth. We must stay calm and get ready to go. It is my <span class='blank-space'></span> to find the reason. We share the serious work and help each other.", paragraphZh: "我很自信我们能发现真相。我们必须保持冷静，准备出发。找到原因是我的责任。我们分担这严肃的工作并互相帮助。", intel: [{ en: "confident", zh: "自信的、自信" }, { en: "discover", zh: "探索、发现" }, { en: "calm", zh: "冷静、镇定" }, { en: "ready", zh: "准备好的、准备" }, { en: "responsibility", zh: "责任" }, { en: "reason", zh: "理由、原因" }, { en: "share", zh: "分享、分担" }, { en: "serious", zh: "严肃认真的、严肃" }, { en: "help", zh: "帮助" }, { en: "truth", zh: "真相" }] },
+            { id: 6, codeName: "第6章：荒野求生", correctAnswer: "escape", options: ["escape", "forget", "receive", "express"], paragraphEn: "We must move quickly to <span class='blank-space'></span> from this place. I try to forget the pain in my body. My friend gives me support and strength. We receive a strange signal and express our fear. I just want a normal life to save my energy.", paragraphZh: "我们必须快速移动，从这个地方逃跑。我试图忘记我身体的痛苦。我的朋友给了我支持和力量。我们收到一个奇怪的信号，并表达了我们的恐惧。我只想要一个正常的生活来保存我的精力。", intel: [{ en: "escape", zh: "逃跑" }, { en: "forget", zh: "忘记" }, { en: "pain", zh: "痛苦" }, { en: "body", zh: "身体" }, { en: "support", zh: "支持" }, { en: "strength", zh: "力量" }, { en: "receive", zh: "收到" }, { en: "strange", zh: "奇怪的、奇怪" }, { en: "express", zh: "表达" }, { en: "fear", zh: "恐惧" }, { en: "normal", zh: "正常的、正常" }, { en: "save", zh: "保存、拯救" }, { en: "energy", zh: "精力" }, { en: "move", zh: "移动" }, { en: "quickly", zh: "快速地、快速" }] },
+            { id: 7, codeName: "第7章：致命公路", correctAnswer: "appreciate", options: ["appreciate", "understand", "arrange", "miss"], paragraphEn: "We drive away from the dead city. I <span class='blank-space'></span> your good advice about the route. We arrange our bags and open the map. It is hard to understand this disaster. We miss our free and happy days, but we must bring this gift.", paragraphZh: "我们开车离开这座死寂的城市。我很感激你关于路线的好建议。我们安排好背包并打开地图。很难理解这场灾难。我想念自由和快乐的日子，但我们必须带来这份礼物。", intel: [{ en: "drive", zh: "驾驶、开车" }, { en: "away", zh: "距离、离开" }, { en: "appreciate", zh: "欣赏、感激" }, { en: "advice", zh: "建议" }, { en: "arrange", zh: "安排" }, { en: "open", zh: "打开" }, { en: "map", zh: "地图" }, { en: "hard", zh: "困难的、很难" }, { en: "understand", zh: "理解" }, { en: "miss", zh: "想念、错过" }, { en: "free", zh: "自由的、自由" }, { en: "happy", zh: "快乐的、快乐" }, { en: "bring", zh: "带来" }, { en: "gift", zh: "礼物" }] },
+            { id: 8, codeName: "第8章：守夜人", correctAnswer: "trust", options: ["trust", "recognize", "avoid", "wonder"], paragraphEn: "We stand around the fire and watch the dark sky. I wonder if they will send help. The pressure is heavy, but we <span class='blank-space'></span> each other. I recognize the danger and warn my team. We must avoid the monsters and bear the cold.", paragraphZh: "我们站在火堆周围，观看黑暗的天空。我想知道他们是否会发送救援。压力很重，但我们信任彼此。我识别出危险并警告我的团队。我们必须避免怪物并承受寒冷。", intel: [{ en: "stand", zh: "站立" }, { en: "around", zh: "周围" }, { en: "watch", zh: "观看" }, { en: "wonder", zh: "想知道" }, { en: "send", zh: "发送" }, { en: "pressure", zh: "压力" }, { en: "trust", zh: "信任" }, { en: "recognize", zh: "识别" }, { en: "danger", zh: "危险" }, { en: "warn", zh: "警告" }, { en: "team", zh: "团队" }, { en: "avoid", zh: "避免" }, { en: "bear", zh: "承受" }, { en: "heavy", zh: "重的、重" }] },
+            { id: 9, codeName: "第9章：废墟寻水", correctAnswer: "protect", options: ["collect", "protect", "report", "create"], paragraphEn: "We stay in a safe place to rest silently. I try to collect water and create a fire. We must <span class='blank-space'></span> this camp. There is no excuse to give up now. It is an honor to report our safe arrival and pass the test.", paragraphZh: "我们停留在一个安全的地方，沉默地休息。我尝试收集水并生火。我们必须保护这个营地。现在没有任何借口放弃。报告我们的安全到达并穿过测试是一种荣耀。", intel: [{ en: "stay", zh: "停留" }, { en: "place", zh: "地点、地方" }, { en: "rest", zh: "休息" }, { en: "silently", zh: "沉默地" }, { en: "collect", zh: "收集" }, { en: "create", zh: "创造、生" }, { en: "protect", zh: "保护" }, { en: "excuse", zh: "借口" }, { en: "honor", zh: "荣耀" }, { en: "report", zh: "报告" }, { en: "pass", zh: "经过、穿过" }, { en: "test", zh: "测试" }] },
+            { id: 10, codeName: "第10章：阴影追踪", correctAnswer: "achieve", options: ["achieve", "admire", "complain", "affect"], paragraphEn: "We wait in the ruins and see some shadows. I sense that they will affect our plan. We must study their behavior to <span class='blank-space'></span> our goal. I admire the brave people who do not cry or complain. Even if we feel weak, we must respect every special word.", paragraphZh: "我们在废墟中等待，看到一些阴影。我感觉他们会影响我们的计划。我们必须学习他们的行为来实现我们的目标。我钦佩那些不哭也不抱怨的勇敢的人。即使我们感到虚弱，我们必须尊重每一个特别的词。", intel: [{ en: "wait", zh: "等待" }, { en: "see", zh: "看、看到" }, { en: "sense", zh: "感觉" }, { en: "affect", zh: "影响" }, { en: "study", zh: "学习" }, { en: "achieve", zh: "实现" }, { en: "admire", zh: "欣赏、钦佩" }, { en: "brave", zh: "勇敢的、勇敢" }, { en: "cry", zh: "哭" }, { en: "complain", zh: "抱怨" }, { en: "weak", zh: "弱的、虚弱" }, { en: "respect", zh: "尊重" }, { en: "special", zh: "特别的、特别" }, { en: "word", zh: "说话、词" }] },
+            { id: 11, codeName: "第11章：破晓", correctAnswer: "face", options: ["face", "identify", "finish", "travel"], paragraphEn: "We wake up and see the light in the sky. We must <span class='blank-space'></span> the problem together. We head to the safe zone to finish our travel. I can identify the enemies and win the battle. They laugh at us, but we are not afraid.", paragraphZh: "我们醒来并看到天空中的光亮。我们必须共同面对这个问题。我们前往安全区以完成我们的旅行。我能识别出敌人并赢下战斗。他们嘲笑我们，但我们不害怕。", intel: [{ en: "wake", zh: "醒来" }, { en: "light", zh: "点亮、光亮" }, { en: "face", zh: "面对" }, { en: "problem", zh: "问题" }, { en: "head", zh: "前往" }, { en: "finish", zh: "完成" }, { en: "travel", zh: "旅行" }, { en: "identify", zh: "识别、鉴定" }, { en: "win", zh: "赢" }, { en: "laugh", zh: "笑、嘲笑" }] },
+            { id: 12, codeName: "第12章：迷雾狙击", correctAnswer: "distance", options: ["distance", "delay", "answer", "actually"], paragraphEn: "The target is far away, so we keep our <span class='blank-space'></span>. We aim at the common enemies in the fog. I will not apologize for the delay. They are busy and their actions annoy me. Actually, we need a good answer right now.", paragraphZh: "目标在很远的地方，所以我们保持我们的距离。我们瞄准雾中普通的敌人。我不会为这次推迟而道歉。他们很忙碌，而且他们的行为令人厌烦。实际上，我们现在需要一个好的回答。", intel: [{ en: "far", zh: "远的、远" }, { en: "distance", zh: "距离" }, { en: "aim", zh: "目标、瞄准" }, { en: "common", zh: "普通的、普通" }, { en: "apologize", zh: "道歉" }, { en: "delay", zh: "推迟" }, { en: "busy", zh: "忙碌的、忙碌" }, { en: "annoy", zh: "令人厌烦的、厌烦" }, { en: "actually", zh: "实际上" }, { en: "answer", zh: "回答" }] },
+            { id: 13, codeName: "第13章：完美反击", correctAnswer: "figure", options: ["figure", "habit", "perfect", "ordinary"], paragraphEn: "We find a firm wall to hide our <span class='blank-space'></span>. It is a perfect time to break their bad habit. The ordinary people nod to show their support. We must produce more weapons for the heavy attack. We leave a mark to show that we are fit to fight.", paragraphZh: "我们找到一堵牢固的墙来隐藏我们的身影。这是打破他们坏习惯的完美的时机。普通的人们点头以展示他们的支持。我们必须为这次重的攻击生产更多武器。我们留下一个标记来表明我们适合战斗。", intel: [{ en: "firm", zh: "牢固的、牢固" }, { en: "figure", zh: "算计、身影、人物" }, { en: "perfect", zh: "完美的、完美" }, { en: "habit", zh: "习惯" }, { en: "ordinary", zh: "普通的、普通" }, { en: "nod", zh: "点头" }, { en: "produce", zh: "生产" }, { en: "heavy", zh: "重的、重" }, { en: "mark", zh: "标记" }, { en: "fit", zh: "健康的、适合" }] },
+            { id: 14, codeName: "第14章：绝命陷阱", correctAnswer: "sharp", options: ["sharp", "sorrow", "punish", "risk"], paragraphEn: "I pull my friend away from the <span class='blank-space'></span> trap. We take a big risk and remain quiet. Suddenly, a strange sound comes into my sight. We cannot pause now, or they will punish us. We hide our sorrow and keep moving forward.", paragraphZh: "我把我的朋友从尖的陷阱拉开。我们冒着巨大的风险并保持安静。突然地，一个奇怪的声音进入我的视野。我们现在不能暂停，否则他们会惩罚我们。我们隐藏我们的悲伤并继续前进。", intel: [{ en: "pull", zh: "拉" }, { en: "sharp", zh: "尖的、清晰的" }, { en: "risk", zh: "风险" }, { en: "remain", zh: "保持" }, { en: "suddenly", zh: "突然地" }, { en: "sound", zh: "声音" }, { en: "sight", zh: "视野、景象" }, { en: "pause", zh: "暂停" }, { en: "punish", zh: "惩罚" }, { en: "sorrow", zh: "悲伤" }] },
+            { id: 15, codeName: "第15章：高墙之下", correctAnswer: "contribution", options: ["contribution", "career", "attack", "casual"], paragraphEn: "We begin to climb the high wall. Our colleague makes a great <span class='blank-space'></span> to the team. We have a deep conversation about our career. We wear dirty clothes but stop their attack. This is not a casual game anymore!", paragraphZh: "我们开始攀爬这堵高墙。我们的同事对团队做出了巨大的贡献。我们关于我们的职业进行了一次深的对话。我们穿着脏的衣服，但阻止了他们的攻击。这不再是一场随意的游戏了！", intel: [{ en: "begin", zh: "开始" }, { en: "climb", zh: "攀爬" }, { en: "colleague", zh: "同事" }, { en: "contribution", zh: "贡献" }, { en: "deep", zh: "深的、深" }, { en: "conversation", zh: "对话" }, { en: "career", zh: "职业" }, { en: "wear", zh: "穿着" }, { en: "dirty", zh: "脏的、脏" }, { en: "attack", zh: "攻击" }, { en: "casual", zh: "随意的、随意" }] },
+            { id: 16, codeName: "第16章：希望之花", correctAnswer: "eventually", options: ["eventually", "generally", "handle", "health"], paragraphEn: "We <span class='blank-space'></span> find a hospital for our health. I favor this place because it is safe. We generally handle the problems together. I see a beautiful flower and feel happy. We have to fly out of this dead zone.", paragraphZh: "我们最终找到了一家为了我们健康的医院。我喜欢这个地方因为它很安全。我们普遍一起处理这些问题。我看到一朵美丽的花朵并感到快乐。我们不得不飞出这个死亡地带。", intel: [{ en: "eventually", zh: "最终" }, { en: "hospital", zh: "医院" }, { en: "health", zh: "健康" }, { en: "favor", zh: "喜欢、赞同" }, { en: "generally", zh: "普遍、一般" }, { en: "handle", zh: "处理" }, { en: "flower", zh: "花朵" }, { en: "fly", zh: "飞出、飞" }] },
+            { id: 17, codeName: "第17章：狂热行军", correctAnswer: "manner", options: ["manner", "influence", "insist", "nervous"], paragraphEn: "We march in a hurry and feel nervous. I insist that we must clean this messy room. His bad <span class='blank-space'></span> will influence our mood. We owe our joy to the brave leader. How long will this pain last?", paragraphZh: "我们匆忙地行进并感到紧张。我坚持我们必须打扫这个乱的房间。他糟糕的礼貌会影响我们的情绪。我们将我们的快乐归因于那位勇敢的领袖。这种痛苦将持续多久？", intel: [{ en: "march", zh: "行进" }, { en: "hurry", zh: "匆忙的、匆忙" }, { en: "nervous", zh: "紧张的、紧张" }, { en: "insist", zh: "坚持" }, { en: "messy", zh: "乱的、乱" }, { en: "manner", zh: "礼貌、方式" }, { en: "influence", zh: "影响" }, { en: "owe", zh: "欠、归因于" }, { en: "joy", zh: "快乐" }, { en: "last", zh: "持续" }] },
+            { id: 18, codeName: "第18章：火力压制", correctAnswer: "reaction", options: ["reaction", "prevent", "provide", "regular"], paragraphEn: "We must prevent the enemies and fight for peace. I feel pity for them, but I must provide cover. We quickly print the map and plan our next move. His <span class='blank-space'></span> is fast, and he does it properly. We make a regular check and give a good remark.", paragraphZh: "我们必须阻止敌人并为和平而战。我对他们感到同情，但我必须提供掩护。我们快速地打印地图并计划我们的下一步。他的反应很快，而且他做得正确。我们进行定期的检查并给出一个好的评价。", intel: [{ en: "prevent", zh: "阻止" }, { en: "peace", zh: "和平" }, { en: "pity", zh: "同情" }, { en: "provide", zh: "提供" }, { en: "print", zh: "打印" }, { en: "reaction", zh: "反应" }, { en: "properly", zh: "正确地、正确" }, { en: "regular", zh: "定期的、常规的、定期" }, { en: "remark", zh: "评价、评论" }] },
+            { id: 19, codeName: "第19章：烈火灼心", correctAnswer: "bother", options: ["bother", "schedule", "character", "repeat"], paragraphEn: "We repair the broken car and check our schedule. Please do not <span class='blank-space'></span> me when I take my seat. We seldom see such a strong character. They repeat the business plan on the list. Watch out! The fire begins to burn!", paragraphZh: "我们修复坏掉的车并检查我们的日程。当我坐在座位上时，请不要打扰我。我们很少看到这样坚强的性格。他们重复清单上的商业计划。小心！火开始燃烧了！", intel: [{ en: "repair", zh: "修复、修理" }, { en: "schedule", zh: "日程" }, { en: "bother", zh: "打扰" }, { en: "seat", zh: "座位" }, { en: "seldom", zh: "很少的、很少" }, { en: "character", zh: "性格" }, { en: "repeat", zh: "重复" }, { en: "business", zh: "商业" }, { en: "list", zh: "清单" }, { en: "burn", zh: "燃烧" }] },
+            { id: 20, codeName: "第20章：最终突围", correctAnswer: "conflict", options: ["conflict", "concentrate", "neighborhood", "constantly"], paragraphEn: "We constantly concentrate on the moving object. A big <span class='blank-space'></span> happens in this neighborhood. We change our clothes to hide our color. We chat for a while and cook some food. Now we just need to stay cool and win!", paragraphZh: "我们持续地集中注意力在移动的物体上。这个小区里发生了一场巨大的冲突。我们换掉衣服来隐藏我们的颜色。我们聊天一会儿并烹饪一些食物。现在我们只需要保持冷却并赢下去！", intel: [{ en: "constantly", zh: "持续地" }, { en: "concentrate", zh: "集中" }, { en: "object", zh: "目标、物体" }, { en: "conflict", zh: "冲突" }, { en: "neighborhood", zh: "小区、社区" }, { en: "clothes", zh: "衣服" }, { en: "color", zh: "颜色" }, { en: "chat", zh: "聊天" }, { en: "cook", zh: "烹饪" }, { en: "cool", zh: "冷却" }] }
+        ];
+
+        // ==========================================
+        // 语音交互系统
+        // ==========================================
+        function speakWord(word, event) {
+            if (event) event.stopPropagation();
+            const cleanWord = word.replace(/[^a-zA-Z]/g, '');
+            if (!cleanWord) return;
+
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel(); 
+                if (currentSpeakingItem === cleanWord) { currentSpeakingItem = ""; return; }
+            }
+            currentSpeakingItem = cleanWord;
+            const utterance = new SpeechSynthesisUtterance(cleanWord);
+            utterance.lang = 'en-US'; utterance.rate = 0.9;
+            utterance.onend = () => { currentSpeakingItem = ""; }; 
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function readFullText() {
+            const levelData = gameLevels[currentLevelIndex];
+            const plainText = levelData.paragraphEn.replace(/<[^>]*>/g, " blank ");
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                if (currentSpeakingItem === "FULL_TEXT") { currentSpeakingItem = ""; return; }
+            }
+            currentSpeakingItem = "FULL_TEXT";
+            const utterance = new SpeechSynthesisUtterance(plainText);
+            utterance.lang = 'en-US'; utterance.rate = 0.85; 
+            utterance.onend = () => { currentSpeakingItem = ""; };
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function showEnglish(el, enWord, zhWord, event) {
+            if(event) event.stopPropagation();
+            speakWord(enWord, null);
+            if (el.innerText === zhWord) {
+                el.innerText = enWord;
+                el.style.color = '#ff9800'; el.style.fontWeight = 'bold'; el.style.borderBottom = '1px dashed #ff9800';
+                setTimeout(() => {
+                    el.innerText = zhWord;
+                    el.style.color = ''; el.style.fontWeight = ''; el.style.borderBottom = '';
+                }, 2000);
+            }
+        }
+
+        function processEnForSpeech(htmlString) {
+            const tempDiv = document.createElement('div'); tempDiv.innerHTML = htmlString;
+            function wrapTextNodes(node) {
+                if (node.nodeType === 3) { 
+                    const text = node.nodeValue;
+                    const newHtml = text.replace(/([a-zA-Z]+)/g, "<span class='clickable-word' onclick=\"speakWord('$1', event)\">$1</span>");
+                    const wrapper = document.createElement('span'); wrapper.innerHTML = newHtml;
+                    node.parentNode.replaceChild(wrapper, node);
+                } else if (node.nodeType === 1 && !node.classList.contains('blank-space')) {
+                    Array.from(node.childNodes).forEach(wrapTextNodes);
+                }
+            }
+            Array.from(tempDiv.childNodes).forEach(wrapTextNodes);
+            return tempDiv.innerHTML;
+        }
+
+        function processZhForClick(text, intel) {
+            let dict = [];
+            intel.forEach(w => {
+                w.zh.split(/[、，。]/).forEach(part => {
+                    part = part.trim();
+                    if(part.length > 0) dict.push({ en: w.en, zh: part });
+                });
+            });
+            dict.sort((a,b) => b.zh.length - a.zh.length); 
+            let res = text;
+            dict.forEach(item => {
+                let parts = res.split(/(<[^>]*>)/);
+                for(let i=0; i<parts.length; i++) {
+                    if(!parts[i].startsWith('<')) {
+                        parts[i] = parts[i].split(item.zh).join(`<span class="zh-clickable" onclick="showEnglish(this, '${item.en}', '${item.zh}', event)">${item.zh}</span>`);
+                    }
+                }
+                res = parts.join('');
+            });
+            return res;
+        }
+
+        // ==========================================
+        // 关卡加载 & 积分更新
+        // ==========================================
+        function updateScoreboard() {
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('poop-val').innerText = poopScore;
+        }
+
+        function loadLevel(index) {
+            if (index < 0) index = 0;
+            currentLevelIndex = index;
+            window.speechSynthesis.cancel(); 
+            currentSpeakingItem = "";
+            hasFailedLevel = false; 
+            
+            const levelData = gameLevels[index];
+            const processedEn = processEnForSpeech(levelData.paragraphEn);
+            const processedZh = processZhForClick(levelData.paragraphZh, levelData.intel);
+            
+            document.getElementById('mission-panel').innerHTML = `
+                <div class="mission-title">[ ${levelData.codeName} ]</div>
+                <div class="en-paragraph">${processedEn}</div>
+                <hr style="border-color:#333; margin:10px 0;" />
+                <div class="zh-paragraph">${processedZh}</div>
+            `;
+
+            const intelList = document.getElementById('intel-list');
+            intelList.innerHTML = ''; 
+            levelData.intel.forEach(word => {
+                intelList.innerHTML += `
+                <li class="vocab-item" onclick="speakWord('${word.en}', event)">
+                    <span class="vocab-en">${word.en}</span> <span class="vocab-zh">${word.zh}</span>
+                </li>`;
+            });
+
+            const targetZone = document.getElementById('target-zone');
+            targetZone.innerHTML = ''; 
+            const shuffledOptions = levelData.options.sort(() => Math.random() - 0.5);
+            
+            shuffledOptions.forEach((option, i) => {
+                let zhMeaning = "未知";
+                const found = levelData.intel.find(w => w.en === option);
+                if (found) zhMeaning = found.zh;
+
+                targetZone.innerHTML += `
+                <div class="target-container" id="target-${i}" onclick="shoot('${option}', ${i}, event)">
+                    <div class="target-inner">
+                        <div class="target-front"><span class="target-text">${option}</span></div>
+                        <div class="target-back">
+                            <span class="poop-bg">💩</span>
+                            <div class="target-back-content">
+                                <div class="target-back-word">${option}</div>
+                                <div class="target-back-zh">${zhMeaning}</div>
+                                <div class="target-penalty">惩罚: 吃屎</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        function prevLevel() { if (currentLevelIndex > 0) loadLevel(currentLevelIndex - 1); }
+
+        // ==========================================
+        // 核心射击 & 终极结算
+        // ==========================================
+        function shoot(word, targetIndex, event) {
+            const levelData = gameLevels[currentLevelIndex];
+            const targetEl = document.getElementById(`target-${targetIndex}`);
+            
+            if (targetEl.classList.contains('flipped')) return; 
+
+            playGunshot(); 
+
+            if (word === levelData.correctAnswer) {
+                if (!hasFailedLevel) { score++; updateScoreboard(); }
+
+                createFireworks(event.clientX, event.clientY);
+                speakWord(word, null); 
+                
+                const blankSpan = document.querySelector('.blank-space');
+                if(blankSpan) blankSpan.outerHTML = `<span style="color:#4caf50; font-weight:bold; border-bottom: 2px solid #4caf50; padding: 0 5px;">${word}</span>`;
+                
+                setTimeout(() => {
+                    currentLevelIndex++;
+                    if(currentLevelIndex < gameLevels.length) { loadLevel(currentLevelIndex); } 
+                    else { triggerEndGame(); }
+                }, 1500); 
+
+            } else {
+                if (!hasFailedLevel) { poopScore++; updateScoreboard(); hasFailedLevel = true; }
+                speakWord(word, null); 
+                throwPoopAnimation(event.clientX, event.clientY, targetEl);
+            }
+        }
+
+        function throwPoopAnimation(targetX, targetY, targetEl) {
+            const poop = document.createElement('div');
+            poop.className = 'flying-poop'; poop.innerText = '💩';
+            poop.style.left = '50vw'; poop.style.top = '100vh';
+            document.body.appendChild(poop);
+
+            requestAnimationFrame(() => {
+                poop.style.left = (targetX - 20) + 'px'; poop.style.top = (targetY - 20) + 'px';
+                poop.style.transform = 'scale(1.5) rotate(360deg)';
+            });
+
+            setTimeout(() => { poop.remove(); targetEl.classList.add('flipped'); playSplatSound(); }, 400); 
+        }
+
+        function triggerEndGame() {
+            document.getElementById('target-zone').innerHTML = ''; 
+            document.getElementById('intel-list').innerHTML = '';
+            
+            if (score > poopScore) {
+                document.getElementById('mission-panel').innerHTML = "<div style='color:#4caf50; font-size: 26px; text-align:center; padding: 40px 0;'>🎉 完美通关！<br><br>得分超越吃屎分，享受属于你的荣耀！</div>";
+                triggerVictorySequence();
+            } else {
+                document.getElementById('mission-panel').innerHTML = "<div style='color:#ff4444; font-size: 26px; text-align:center; padding: 40px 0;'>💀 任务失败！<br><br>吃屎分超标，准备接受终极极刑！</div>";
+                triggerUltimatePoop();
+            }
+        }
+
+        function triggerVictorySequence() {
+            let endTime = Date.now() + 60000; 
+            let fwInterval = setInterval(() => {
+                if(Date.now() > endTime) { clearInterval(fwInterval); return; }
+                createFireworks(window.innerWidth * Math.random(), window.innerHeight * Math.random() * 0.6);
+            }, 800);
+
+            const praises = ["太棒了！你的英语词汇量简直无敌！", "Excellent shooting, commander! You are a genius!", "完美通关，你是全场最靓的仔！", "Amazing! You have successfully learned all the words!", "得分超越吃屎分，你就是真正的狙击之王！"];
+            let praiseIndex = 0;
+            
+            function speakNextPraise() {
+                if(Date.now() > endTime) return;
+                let p = praises[praiseIndex % praises.length];
+                praiseIndex++;
+                let u = new SpeechSynthesisUtterance(p);
+                u.lang = p.match(/[a-zA-Z]/) ? 'en-US' : 'zh-CN';
+                u.onend = () => { setTimeout(speakNextPraise, 1500); };
+                window.speechSynthesis.speak(u);
+            }
+            speakNextPraise();
+        }
+
+        function triggerUltimatePoop() {
+            let endTime = Date.now() + 10000; 
+            let poopInterval = setInterval(() => {
+                if(Date.now() > endTime) { clearInterval(poopInterval); return; }
+                let p = document.createElement('div');
+                p.className = 'ultimate-poop'; p.innerText = '💩';
+                p.style.fontSize = (Math.random() * 80 + 50) + 'px';
+                p.style.left = (Math.random() * window.innerWidth) + 'px';
+                p.style.top = '-150px';
+                document.body.appendChild(p);
+                playSplatSound();
+                setTimeout(() => p.remove(), 1000); 
+            }, 100);
+        }
+
+        // ==========================================
+        // 烟花特效系统
+        // ==========================================
+        const canvas = document.getElementById('fireworksCanvas'); const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight; let particles = [];
+        function createFireworks(x, y) {
+            const colors = ['#ff0000', '#00ff00', '#ffff00', '#ff00ff', '#ffffff', '#ff8800'];
+            for (let i = 0; i < 150; i++) {
+                particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30, color: colors[Math.floor(Math.random() * colors.length)], life: 1, decay: Math.random() * 0.015 + 0.01 });
+            }
+            animateFireworks();
+        }
+        function animateFireworks() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); let activeParticles = false;
+            for (let i = 0; i < particles.length; i++) {
+                let p = particles[i];
+                if (p.life > 0) {
+                    activeParticles = true; p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.life -= p.decay;
+                    ctx.globalAlpha = Math.max(0, p.life); ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
+                }
+            }
+            if (activeParticles) { requestAnimationFrame(animateFireworks); } else { ctx.clearRect(0, 0, canvas.width, canvas.height); particles = []; }
+        }
+        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+        window.onload = () => { loadLevel(currentLevelIndex); };
+    </script>
+</body>
+</html>
