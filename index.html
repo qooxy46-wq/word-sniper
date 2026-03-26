@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNIPER&shit</title>
+    <style>
+        /* 基础样式复刻 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            /* 复刻原网页底色 */
+            background-color: #f4f7f6;
+            /* 复刻原网页字体 stack，追求可爱圆润感 */
+            font-family: "Arial Rounded MT Bold", "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 大标题样式 */
+        .main-title {
+            /* 复刻原网页大标题颜色 (紫色 accent) */
+            color: rgb(206, 147, 216);
+            font-size: 2.5rem;
+            margin-bottom: 50px;
+            text-align: center;
+            /* 增加一点可爱阴影 */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 选项卡容器 */
+        .tabs-container {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 基础圆角矩形按钮样式 */
+        .tab-btn {
+            /* 复刻原网页按钮底色 (Green) */
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            /* 复刻原网页大圆角 */
+            border-radius: 20px;
+            padding: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            text-decoration: none;
+            text-align: center;
+            width: 100%;
+            /* 模仿原网页按钮的轻微阴影 */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 悬停效果 */
+        .tab-btn:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+        }
+
+        /* 点击效果 */
+        .tab-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Coming Soon 占位卡片 (灰色) */
+        .tab-btn.disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .tab-btn.disabled:hover { transform: none; }
+
+        /* ---------------------------------------------------- */
+        /* 交互核心：通过 CSS 控制显示/隐藏 */
+        
+        /* 12大主题的二级菜单 (初始隐藏) */
+        #themes-menu {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            animation: fadeIn 0.5s;
+        }
+
+        /* 返回按钮 */
+        .back-btn {
+            background: none;
+            border: none;
+            color: #7f8c8d;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-bottom: 10px;
+            align-self: flex-start;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="main-title">SNIPER&shit</h1>
+
+    <div class="tabs-container" id="main-menu">
+        <button class="tab-btn" onclick="showThemes()">confidential ACTion</button>
+        <button class="tab-btn" style="background-color: #f39c12;" onclick="showVip()">SHOT the TARGET</button>
+    </div>
+
+    <script>
+        function showThemes() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('themes-menu').style.display = 'flex';
+            document.getElementById('vip-menu').style.display = 'none';
+        }
+
+        function showVip() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('themes-menu').style.display = 'none';
+            document.getElementById('vip-menu').style.display = 'flex';
+        }
+
+        function showMainMenu() {
+            document.getElementById('themes-menu').style.display = 'none';
+            document.getElementById('vip-menu').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
