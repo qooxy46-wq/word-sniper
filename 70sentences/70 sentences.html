@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>英語狙擊終端：70金句不重複生死戰</title>
+    <style>
+        :root {
+            --ios-blue: #007aff; --ios-red: #ff3b30; --ios-green: #34c759;
+            --ios-orange: #ff9500; --bg: #000;
+        }
+        body {
+            margin: 0; display: flex; height: 100vh; overflow: hidden;
+            font-family: -apple-system, "PingFang SC", "SF Pro Display", sans-serif;
+            background-color: var(--bg); color: #fff; -webkit-font-smoothing: antialiased;
+        }
+
+        /* 戰術情報面板 */
+        #sidebar {
+            width: 350px; background: rgba(15, 15, 15, 0.98);
+            backdrop-filter: blur(40px); border-right: 1px solid #333;
+            display: flex; flex-direction: column; z-index: 1000;
+        }
+        .intel-nav { display: flex; overflow-x: auto; background: #000; padding: 12px 5px; gap: 5px; border-bottom: 1px solid #333; }
+        .nav-tab { 
+            white-space: nowrap; font-size: 10px; padding: 6px 12px; border-radius: 12px; 
+            background: #2c2c2e; cursor: pointer; color: #8e8e93; border: none;
+        }
+        .nav-tab.active { background: var(--ios-blue); color: #fff; }
+
+        #word-list { flex: 1; overflow-y: auto; padding: 15px; }
+        .word-card { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+        .en-t { font-size: 14px; font-weight: 700; color: #fff; display: block; }
+        .cn-t { font-size: 11px; color: #8e8e93; margin-top: 4px; }
+
+        /* 主戰場 */
+        #main { flex: 1; display: flex; flex-direction: column; padding: 25px; position: relative; background: radial-gradient(circle at 50% 40%, #1c1c1e 0%, #000 100%); }
+        
+        #round-selector { display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; justify-content: center; z-index: 100; }
+        .round-btn { background: rgba(255,255,255,0.1); border: 1px solid #333; color: #fff; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-size: 11px; }
+        .round-btn.active { background: var(--ios-blue); border-color: #fff; }
+        
+        #hud { display: flex; justify-content: flex-end; gap: 10px; z-index: 100; }
+        .ios-btn { background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; color: #fff; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; }
+
+        /* 題目區 */
+        #mission-box { flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 5; }
+        #sentence-en { font-size: 34px; font-weight: 800; line-height: 1.4; margin-bottom: 30px; max-width: 900px; }
+        .gap { border-bottom: 5px solid var(--ios-red); min-width: 220px; display: inline-block; min-height: 50px; vertical-align: middle; margin: 0 10px; }
+        #hint-cn { font-size: 26px; color: #fff; line-height: 2.2; max-width: 850px; font-weight: 600; }
+        .keyword { color: var(--ios-green); font-weight: 800; cursor: pointer; border-bottom: 2px dashed var(--ios-green); padding: 0 4px; }
+        .keyword.revealed { color: var(--ios-orange); border-bottom: 2px solid var(--ios-orange); }
+
+        /* 靶標 */
+        #targets { height: 220px; display: flex; justify-content: center; align-items: center; gap: 25px; padding-bottom: 50px; z-index: 5; }
+        .node { width: 180px; height: 180px; border: 5px double var(--ios-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; cursor: crosshair; background: rgba(0,122,255,0.05); text-align: center; padding: 15px; box-sizing: border-box; transition: 0.3s; }
+        .node:hover { transform: scale(1.1); background: var(--ios-blue); color: #000; box-shadow: 0 0 40px var(--ios-blue); }
+
+        /* 特效層 */
+        #settlement { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 99999; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.98); text-align: center; }
+        #fx-poop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: none; }
+        .poop-splat { position: absolute; font-size: 140px; animation: splat-hit 0.4s ease-out forwards; }
+        @keyframes splat-hit { 0% { transform: scale(0.1); opacity: 0; } 100% { transform: scale(1.5); opacity: 0.8; } }
+        .shake-screen { animation: screen-shake 0.1s infinite; }
+        @keyframes screen-shake { 0%,100%{transform:translate(0,0);} 25%{transform:translate(-10px,10px);} 75%{transform:translate(10px,-10px);} }
+        #canvas { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 1; }
+    </style>
+</head>
+<body onclick="resumeAudio()">
+
+<div id="sidebar">
+    <div class="intel-nav">
+        <button class="nav-tab active" onclick="switchIntel('current')">當前情報</button>
+        <button class="nav-tab" onclick="switchIntel('names')">活動</button>
+        <button class="nav-tab" onclick="switchIntel('time')">時間/地點</button>
+        <button class="nav-tab" onclick="switchIntel('purpose')">目的/意義</button>
+        <button class="nav-tab" onclick="switchIntel('feeling')">反響/感悟</button>
+    </div>
+    <div id="word-list"></div>
+</div>
+
+<div id="main">
+    <canvas id="canvas"></canvas>
+    <div id="top-panel">
+        <div id="round-selector"></div>
+        <div id="hud">
+            <div class="ios-btn" style="color: #ffd700;">命中: <span id="s-val">0</span></div>
+            <div class="ios-btn" style="color: var(--ios-red);">吃屎: <span id="p-val">0</span></div>
+            <div class="ios-btn">進度: <span id="idx-ui">1</span>/7</div>
+        </div>
+    </div>
+    <div id="mission-box">
+        <div id="sentence-en"></div>
+        <div id="hint-cn"></div>
+    </div>
+    <div id="targets"></div>
+</div>
+
+<div id="fx-poop"></div>
+
+<div id="settlement">
+    <div id="big-msg" style="font-size: 120px; font-weight: 900; margin-bottom: 20px;"></div>
+    <div id="sub-msg" style="font-size: 32px; color: var(--ios-green);"></div>
+    <div id="timer-box" style="margin-top:50px; font-size:24px; color:#666;"></div>
+</div>
+
+<script>
+    let audioCtx = null;
+    function resumeAudio() { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function playSound(f, type) { if(!audioCtx) return; const osc = audioCtx.createOscillator(); const g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = type || 'sine'; osc.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4); osc.start(); osc.stop(audioCtx.currentTime + 0.4); }
+
+    const intelLibrary = {
+        names: [["Cultural Festival", "文化節"], ["Speech Contest", "英語演講比賽"], ["Reading Sharing Session", "讀書分享會"], ["Volunteer Service", "志願者服務"], ["Chinese Poetry Competition", "中國詩歌比賽"], ["Science Expo", "科技博覽會"]],
+        time: [["at 3 pm on August 20th", "8/20下午3點"], ["next Wednesday", "下週三"], ["in our school gym", "在體育館"], ["at the school gate", "在校門口"]],
+        purpose: [["broaden our horizon", "拓寬視野"], ["enrich campus life", "豐富校園生活"], ["deepen understanding", "加深理解"], ["build up confidence", "建立信心"], ["cultivate responsibility", "培養責任感"]],
+        feeling: [["leave a deep impression", "留下深刻印象"], ["be well-received", "受歡迎"], ["appreciate it", "不勝感激"], ["realize the importance", "意識到重要性"]]
+    };
+
+    // 真正的 70 個去重句型資料庫
+    const fullDatabase = [
+        // R1
+        { cn: "<span class='keyword' data-en='match'>比賽</span> <span class='keyword' data-en='is scheduled to'>定於</span> 7月4日下午在體育館舉行。", q: "The match ___ be held in our school gym on July 4th.", key: "is scheduled to", wrong: ["witnessed", "themed"], intel: [["scheduled to", "定於"]] },
+        { cn: "<span class='keyword' data-en='last month'>上個月</span> <span class='keyword' data-en='witnessed'>見證了</span> 一場精彩的英語演講比賽。", q: "Last month ___ a wonderful English speech contest.", key: "witnessed", wrong: ["scheduled", "conducted"], intel: [["witnessed", "見證了"]] },
+        { cn: " <span class='keyword' data-en='As scheduled'>按計劃</span>，開幕式將於上午9點開始。", q: "___, the opening ceremony will begin at 9:00 a.m.", key: "As scheduled", wrong: ["Witnessing", "Including"], intel: [["as scheduled", "按計劃"]] },
+        { cn: "活動 <span class='keyword' data-en='is planned to'>計劃</span> 在講堂舉行。", q: "The activity ___ be held in the lecture hall.", key: "is planned to", wrong: ["witness", "feature"], intel: [["planned to", "計劃"]] },
+        { cn: "我們 <span class='keyword' data-en='set off'>定於</span> 早上8點從校門口出發。", q: "We ___ at the school gate at 8 a.m.", key: "are scheduled to set off", wrong: ["meet", "witness"], intel: [["set off", "出發"]] },
+        { cn: "校園 <span class='keyword' data-en='witnessed the opening'>見證了...開幕</span> 的藝術展覽。", q: "Our campus ___ of an art exhibition.", key: "witnessed the opening", wrong: ["scheduled", "themed"], intel: [["opening", "開幕"]] },
+        { cn: "交流活動將以書法工作坊 <span class='keyword' data-en='kick off'>拉開帷幕</span>。", q: "The festival will ___ with calligraphy workshops.", key: "kick off", wrong: ["end up", "witness"], intel: [["kick off", "拉開帷幕"]] },
+        // R2
+        { cn: "活動以“文化橋梁”為 <span class='keyword' data-en='theme'>主題</span>。", q: "The activity is with the ___ of 'Cultural Bridges'.", key: "theme", wrong: ["purpose", "witness"], intel: [["theme", "主題"]] },
+        { cn: "戲劇表演 <span class='keyword' data-en='themed'>以...為主題</span> “文學的魅力”。", q: "The drama performance is ___ 'The Magic of Literature'.", key: "themed", wrong: ["witnessed", "scheduled"], intel: [["themed", "以主題"]] },
+        { cn: "其 <span class='keyword' data-en='purpose'>目的</span> 是為了 <span class='keyword' data-en='cultivate'>培養</span> 責任感。", q: "Its ___ is to cultivate our sense of responsibility.", key: "purpose", wrong: ["witness", "theme"], intel: [["purpose", "目的"]] },
+        { cn: "旨在提高意識，上週舉辦了講座。", q: "___ raising awareness, a lecture was held.", key: "Aimed at", wrong: ["Witnessing", "Including"], intel: [["aimed at", "旨在"]] },
+        { cn: "目的是 <span class='keyword' data-en='fueling passion'>激發熱情</span> 對於體育。", q: "The event is aiming at ___ for sports.", key: "fueling passion", wrong: ["witnessing", "held"], intel: [["fueling", "激發"]] },
+        { cn: "為 <span class='keyword' data-en='recycling'>回收</span> 資源，垃圾分類得到了推廣。", q: "Aiming at ___ resources, the program was promoted.", key: "recycling", wrong: ["holding", "witnessing"], intel: [["recycling", "回收"]] },
+        { cn: "其 <span class='keyword' data-en='ultimate purpose'>最終目的</span> 是增強學生體質。", q: "The ___ of the session is to build up bodies.", key: "ultimate purpose", wrong: ["witness", "theme"], intel: [["ultimate", "最終"]] },
+        // R3
+        { cn: "活動涵蓋廣泛， <span class='keyword' data-en='ranging from'>範圍從...到...</span> 體育到藝術。", q: "Activities were held, ___ sports to art.", key: "ranging from", wrong: ["including", "consisting"], intel: [["ranging", "範圍"]] },
+        { cn: "博覽會 <span class='keyword' data-en='features'>以...為特色</span> 各種創新項目。", q: "The fair ___ various innovative projects.", key: "features", wrong: ["themes", "schedules"], intel: [["features", "特色"]] },
+        { cn: "展覽 <span class='keyword' data-en='consists of'>由...組成</span> 三個部分。", q: "The exhibition ___ three main parts.", key: "consists of", wrong: ["ranges", "themed"], intel: [["consists", "組成"]] },
+        { cn: "<span class='keyword' data-en='What attracts me most'>最吸引我的是</span> 活動提供多樣表演。", q: "___ is that the festival offers various shows.", key: "What attracts me most", wrong: ["Ultimately", "Witnessed"], intel: [["attracts", "吸引"]] },
+        { cn: "<span class='keyword' data-en='impresses me most'>讓我印象深刻的是</span> 辯論賽拓寬了視野。", q: "What ___ is that the debate broadened our horizons.", key: "impresses me most", wrong: ["follows", "witnessed"], intel: [["impresses", "印象"]] },
+        { cn: "活動亮點是學生將 <span class='keyword' data-en='give performances'>進行表演</span> 。", q: "The highlight is that students will ___.", key: "give performances", wrong: ["witness", "theme"], intel: [["performances", "表演"]] },
+        { cn: "活動 <span class='keyword' data-en='presented'>展現了</span> 文化的魅力。", q: "The activity ___ the charm of culture.", key: "presented", wrong: ["witnessed", "ended"], intel: [["presented", "展現"]] },
+        // R4
+        { cn: "活動 <span class='keyword' data-en='started with'>始於</span> 展覽。", q: "The event ___ a cultural heritage exhibition.", key: "started with", wrong: ["followed by", "ended"], intel: [["started with", "始於"]] },
+        { cn: "接下來是民間表演 <span class='keyword' data-en='closely followed by'>緊隨其後</span> 。", q: "Exhibitions were ___ folk dance performances.", key: "closely followed by", wrong: ["started with", "ended"], intel: [["followed", "緊隨"]] },
+        { cn: "活動 <span class='keyword' data-en='was brought to an end'>圓滿結束</span> 隨著講座。", q: "This event ___ with a lecture.", key: "was brought to an end", wrong: ["kicked off", "highlighted"], intel: [["end", "結束"]] },
+        { cn: "畢業典禮以視頻 <span class='keyword' data-en='start off'>開始</span>。", q: "The ceremony will ___ with the alumni video.", key: "start off", wrong: ["ending", "witness"], intel: [["start off", "開始"]] },
+        { cn: "閉幕式將 <span class='keyword' data-en='put an ending to'>為...畫上句號</span> 慶典。", q: "The closing ceremony will ___ this celebration.", key: "put an ending to", wrong: ["kick off", "feature"], intel: [["ending", "句號"]] },
+        { cn: "這項舉措 <span class='keyword' data-en='ultimately'>最終</span> 取得成功。", q: "The project will ___ achieve great success.", key: "ultimately", wrong: ["witness", "start"], intel: [["ultimately", "最終"]] },
+        { cn: "接下來是 <span class='keyword' data-en='What followed was'>接下來的是</span> 問答環節。", q: "___ a Q&A session.", key: "What followed was", wrong: ["Ultimately", "Witnessed"], intel: [["followed", "接下來"]] },
+        // R5
+        { cn: "這 <span class='keyword' data-en='enables them to'>使他們能夠</span> 鍛煉身體。", q: "It ___ exercise and keep fit.", key: "enables them to", wrong: ["prevents", "is bad"], intel: [["enables", "使能夠"]] },
+        { cn: "活動極大 <span class='keyword' data-en='benefit students hugely'>有益於學生</span> 。", q: "The activity will ___ in many ways.", key: "benefit students hugely", wrong: ["harm students", "useless"], intel: [["benefit", "受益"]] },
+        { cn: "這為挑戰自我 <span class='keyword' data-en='serves as a perfect opportunity'>提供了絕佳機會</span> 。", q: "It ___ to challenge ourselves.", key: "serves as a perfect opportunity", wrong: ["is a waste", "stops"], intel: [["opportunity", "機會"]] },
+        { cn: "這 <span class='keyword' data-en='contributes to'>有助於</span> 增強體質。", q: "It ___ students strengthening their physiques.", key: "contributes to", wrong: ["is harmful", "prevents"], intel: [["contributes", "有助於"]] },
+        { cn: "它在應對壓力方面 <span class='keyword' data-en='plays a positive role'>起積極作用</span>。", q: "It ___ in helping us cope with pressure.", key: "plays a positive role", wrong: ["is negative", "no effect"], intel: [["positive role", "積極作用"]] },
+        { cn: "這 <span class='keyword' data-en='encourages students to'>鼓勵學生</span> 互相幫助。", q: "This ___ students to help each other.", key: "encourages students to", wrong: ["stops", "forbids"], intel: [["encourages", "鼓勵"]] },
+        { cn: "這使我 <span class='keyword' data-en='equips me with'>具備了</span> 技能。", q: "The club ___ good communication skills.", key: "equips me with", wrong: ["deprives", "harms"], intel: [["equips", "具備"]] },
+        // R6
+        { cn: "活動 <span class='keyword' data-en='making it possible'>使其成為可能</span> 探索。", q: "Chances were provided, ___ to explore.", key: "making it possible", wrong: ["hard", "impossible"], intel: [["possible", "可能"]] },
+        { cn: "活動 <span class='keyword' data-en='not only'>不僅</span> 鍛煉，而且有趣。", q: "___ did it provide exercise, but also...", key: "Not only", wrong: ["Only", "Although"], intel: [["not only", "不僅"]] },
+        { cn: "它還能提升能力， <span class='keyword' data-en='leading to'>進而導致</span> 進步。", q: "It enhances learning, ___ improved performance.", key: "leading to", wrong: ["stopping", "before"], intel: [["leading", "導致"]] },
+        { cn: "溝通不僅能理解，還能 <span class='keyword' data-en='express feelings'>表達感受</span>。", q: "It enables us to ___ clearly.", key: "express feelings", wrong: ["hide", "ignore"], intel: [["express", "表達"]] },
+        { cn: "不僅強身，還能 <span class='keyword' data-en='relieve stress'>緩解壓力</span>。", q: "Exercise helps us keep fit and ___.", key: "relieve stress", wrong: ["increase", "arouse"], intel: [["relieve", "緩解"]] },
+        { cn: "這 <span class='keyword' data-en='deepens appreciation'>加深了欣賞</span> 。", q: "It ___ for the traditional language.", key: "deepens appreciation", wrong: ["hates", "ignores"], intel: [["deepen", "加深"]] },
+        { cn: "講座幫助學生 <span class='keyword' data-en='broaden knowledge'>拓寬知識面</span> 。", q: "Lectures were carried out, ___.", key: "helping students broaden their knowledge", wrong: ["limiting", "ignoring"], intel: [["broaden", "拓寬"]] },
+        // R7
+        { cn: " <span class='keyword' data-en='Inspired by'>受到啟發</span> ，學生決心努力。", q: "___ the speech, students determined to work hard.", key: "Inspired by", wrong: ["Tired as", "Knowing"], intel: [["inspired", "啟發"]] },
+        { cn: " <span class='keyword' data-en='Tired as they were'>儘管疲憊</span>，學生們仍有收穫。", q: "___, students had a fat harvest.", key: "Tired as they were", wrong: ["Inspired", "Learning"], intel: [["tired as", "儘管疲憊"]] },
+        { cn: "肯定會給你 <span class='keyword' data-en='leave a good impression'>留下好印象</span>。", q: "This visit will definitely ___ on you.", key: "leave a good impression", wrong: ["disappoint", "be bad"], intel: [["impression", "印象"]] },
+        { cn: "學生們 <span class='keyword' data-en='consider it a great opportunity'>認為是良機</span> 。", q: "Students ___ to spread culture.", key: "consider it a great opportunity", wrong: ["hate", "disagree"], intel: [["consider", "認為"]] },
+        { cn: "戲曲表演 <span class='keyword' data-en='is well-received'>大受歡迎</span>。", q: "The opera performance ___.", key: "is well-received", wrong: ["is bad", "is unknown"], intel: [["received", "受歡迎"]] },
+        { cn: "茶在年輕人中 <span class='keyword' data-en='enjoys increasing popularity'>越來越火</span>。", q: "Tea ___ among youth.", key: "enjoys increasing popularity", wrong: ["loses", "hates"], intel: [["popularity", "流行"]] },
+        { cn: " <span class='keyword' data-en='recognized as'>公認為...</span> 寶藏。", q: "Opera, ___ a national treasure, is popular.", key: "recognized as", wrong: ["themed", "scheduled"], intel: [["recognized", "公認"]] },
+        // R8
+        { cn: "團隊合作 <span class='keyword' data-en='plays a crucial role'>起至關重要作用</span>。", q: "Teamwork ___ in achieving goals.", key: "plays a crucial role", wrong: ["is bad", "stops"], intel: [["crucial", "關鍵"]] },
+        { cn: "鍛煉對我們 <span class='keyword' data-en='is of great help'>大有幫助</span>。", q: "Exercise ___ to us.", key: "is of great help", wrong: ["is harmful", "useless"], intel: [["help", "幫助"]] },
+        { cn: "共度時光是 <span class='keyword' data-en='top priority'>首要任務</span>。", q: "Spending time is our ___.", key: "top priority", wrong: ["last choice", "waste"], intel: [["priority", "優先"]] },
+        { cn: " <span class='keyword' data-en='Without your guidance'>沒有你的指導</span>，我不能進步。", q: "___, I couldn't have made progress.", key: "Without your guidance", wrong: ["Because", "With"], intel: [["without", "沒有"]] },
+        { cn: " <span class='keyword' data-en='Only by reading'>只有通過閱讀</span>，才能擴大詞彙。", q: "___ can you expand your vocabulary.", key: "Only by reading", wrong: ["Reading", "If"], intel: [["only by", "只有"]] },
+        { cn: " <span class='keyword' data-en='It is high time'>該是時候了</span> 我們採取行動。", q: "___ that we took action.", key: "It is high time", wrong: ["It was", "There is"], intel: [["high time", "正是時候"]] },
+        { cn: " <span class='keyword' data-en='matters most'>最重要的是</span> 立即行動。", q: "What ___ is that we take immediate action.", key: "matters most", wrong: ["is bad", "ignore"], intel: [["matters", "重要"]] },
+        // R9
+        { cn: "如果閱讀更多書， <span class='keyword' data-en='would be better'>會更好</span> 。", q: "It ___ if students read more books.", key: "would be better", wrong: ["is bad", "impossible"], intel: [["better", "更好"]] },
+        { cn: "我 <span class='keyword' data-en='strongly suggest'>強烈建議</span> 鍛煉。", q: "I ___ that you should exercise regularly.", key: "strongly suggest", wrong: ["don't like", "warn"], intel: [["suggest", "建議"]] },
+        { cn: "對你來說 <span class='keyword' data-en='it is wise'>是明智的</span> 計劃任務。", q: "___ for you to plan ahead.", key: "it is wise", wrong: ["it is bad", "foolish"], intel: [["wise", "明智"]] },
+        { cn: "戶外活動是 <span class='keyword' data-en='good choice'>好選擇</span>。", q: "Doing activities is also a ___.", key: "good choice", wrong: ["bad idea", "waste"], intel: [["choice", "選擇"]] },
+        { cn: "你 <span class='keyword' data-en='had better not'>最好不要</span> 分享隱私。", q: "You ___ share personal info online.", key: "had better not", wrong: ["must", "can"], intel: [["had better", "最好"]] },
+        { cn: " <span class='keyword' data-en='What you should do'>你應該做的是</span> 制定計劃。", q: "___ is to make a study plan.", key: "What you should do", wrong: ["You can", "Instead"], intel: [["should do", "應該"]] },
+        { cn: " <span class='keyword' data-en='improve efficiency'>提高效率</span> 。", q: "By doing so, you could ___.", key: "improve efficiency", wrong: ["waste", "slow"], intel: [["efficiency", "效率"]] },
+        // R10
+        { cn: "最近，心理健康 <span class='keyword' data-en='brought into focus'>引起關注</span>。", q: "Recently mental health has been ___.", key: "brought into focus", wrong: ["ignored", "forgotten"], intel: [["focus", "關注"]] },
+        { cn: " <span class='keyword' data-en='In recent years'>近年來</span>，科技帶來了問題。", q: "___, with technology comes problems.", key: "In recent years", wrong: ["Long ago", "Future"], intel: [["recent", "近年"]] },
+        { cn: " <span class='keyword' data-en='It is through'>正是通過...</span> 合作實現目標。", q: "___ teamwork that we achieve goals.", key: "It is through", wrong: ["With", "By"], intel: [["through", "通過"]] },
+        { cn: " <span class='keyword' data-en='I am writing to'>我寫信是想...</span> 邀請你。", q: "___ invite you to the festival.", key: "I am writing to", wrong: ["I want to", "I call"], intel: [["writing", "寫信"]] },
+        { cn: " <span class='keyword' data-en='It is my great honor'>我很榮幸</span> 發言。", q: "___ to deliver a speech.", key: "It is my great honor", wrong: ["I am sad", "It is bad"], intel: [["honor", "榮幸"]] },
+        { cn: "從這次經歷，我 <span class='keyword' data-en='have realized that'>意識到</span> 努力是關鍵。", q: "I ___ hard work is key.", key: "have realized that", wrong: ["forgot", "ignored"], intel: [["realized", "意識到"]] },
+        { cn: "讓我 <span class='keyword' data-en='realize the importance'>意識到重要性</span> 誠實。", q: "It makes me ___ of honesty.", key: "realize the importance", wrong: ["ignore", "forget"], intel: [["importance", "重要性"]] }
+    ];
+
+    let curR = 0, curI = 0, score = 0, poops = 0, locked = false, lastWrong = null;
+    let synth = window.speechSynthesis, activeTab = 'current';
+
+    function init() {
+        const sel = document.getElementById('round-selector'); sel.innerHTML = "";
+        for (let i = 0; i < 10; i++) {
+            const b = document.createElement('button'); b.className = 'round-btn' + (i === curR ? ' active' : '');
+            b.innerText = 'ROUND ' + (i + 1); b.onclick = () => { curR=i; curI=0; score=0; poops=0; load(); }; sel.appendChild(b);
+        }
+        load();
+    }
+
+    function switchIntel(t) { activeTab = t; renderIntel(); }
+    function renderIntel() {
+        const list = document.getElementById('word-list');
+        const items = activeTab === 'current' ? fullDatabase[curR * 7 + curI].intel : intelLibrary[activeTab];
+        list.innerHTML = `<div style="font-size:11px;color:var(--ios-blue);margin-bottom:15px;font-weight:800;letter-spacing:1px">TACTICAL INTEL</div>` + 
+            items.map(i => `<div class="word-card" onclick="speak('${i[0]}')"><span class="en-t">${i[0]}</span><span class="cn-t">${i[1]}</span></div>`).join('');
+    }
+
+    function load() {
+        const q = fullDatabase[curR * 7 + curI]; locked = false;
+        document.getElementById('idx-ui').innerText = curI + 1;
+        document.getElementById('s-val').innerText = score;
+        document.getElementById('p-val').innerText = poops;
+        document.getElementById('hint-cn').innerHTML = q.cn;
+        document.getElementById('sentence-en').innerHTML = q.q.replace('___', '<span class="gap"></span>');
+        renderIntel();
+        document.querySelectorAll('.keyword').forEach(kw => { kw.onclick = function() { const old = this.innerText; const en = this.getAttribute('data-en'); this.innerText = en; this.classList.add('revealed'); speak(en); setTimeout(() => { this.innerText = old; this.classList.remove('revealed'); }, 5000); }; });
+        const pool = document.getElementById('targets'); pool.innerHTML = "";
+        [q.key, ...q.wrong].sort(() => Math.random()-0.5).forEach(o => { const b = document.createElement('div'); b.className = 'node'; b.innerText = o; b.onclick = () => fire(o, q.key); pool.appendChild(b); });
+    }
+
+    function fire(v, c) {
+        speak(v);
+        if(v === c) {
+            if(!locked) score++; playSound(1000); launchWin('flower');
+            document.querySelector('.gap').innerText = v; document.querySelector('.gap').style.color = "var(--ios-green)";
+            setTimeout(() => { curI++; if(curI>=7) settle(); else load(); }, 1200);
+        } else {
+            if(!locked) { poops++; locked = true; lastWrong = fullDatabase[curR * 7 + curI]; playSound(100, 'sawtooth'); splatPoop(); }
+        }
+    }
+
+    function settle() {
+        const over = document.getElementById('settlement'); over.style.display = 'flex';
+        if (poops > score) {
+            document.getElementById('big-msg').innerText = "菜就多練"; document.getElementById('big-msg').style.color = "var(--ios-red)";
+            if (navigator.vibrate) navigator.vibrate([500, 110, 500, 110, 500, 110, 500]);
+            let sec = 10;
+            const t = setInterval(() => { document.getElementById('timer-box').innerText = `懲罰剩餘：${sec--}秒`; splatPoop(); if(sec < 0) { clearInterval(t); over.style.display='none'; document.getElementById('review-content').innerHTML = `剛才出錯的解析：<br><br>${lastWrong.ana || '請點擊情報學習正確搭配。'}`; document.getElementById('review-modal').style.display='block'; } }, 1000);
+        } else {
+            document.getElementById('big-msg').innerText = "狙擊之王"; document.getElementById('big-msg').style.color = "var(--ios-green)";
+            const f = setInterval(() => { launchWin('flower'); }, 300);
+            setTimeout(() => { clearInterval(f); over.style.display='none'; curR=(curR+1)%10; curI=0; score=0; poops=0; init(); }, 5000);
+        }
+    }
+
+    const cvs = document.getElementById('canvas'); const ctx = cvs.getContext('2d');
+    function launchWin(type) {
+        cvs.width = window.innerWidth; cvs.height = window.innerHeight;
+        let pts = []; for(let i=0; i<60; i++) pts.push({x:cvs.width/2, y:cvs.height/2, vx:(Math.random()-0.5)*35, vy:(Math.random()-0.5)*35, char:['🌸','🌹','🌻','🌺'][Math.floor(Math.random()*4)], l:1.0});
+        function anim() { ctx.clearRect(0,0,cvs.width,cvs.height); pts.forEach((p,i) => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.2; p.l-=0.015; if(p.l<=0) pts.splice(i,1); ctx.globalAlpha = p.l; ctx.font="35px serif"; ctx.fillText(p.char, p.x, p.y); }); if(pts.length>0) requestAnimationFrame(anim); }
+        anim();
+    }
+    function splatPoop() {
+        const fx = document.getElementById('fx-poop'); fx.style.display='block'; document.body.classList.add('shake-screen');
+        const p = document.createElement('div'); p.className='poop-splat'; p.innerText='💩'; p.style.left=Math.random()*80+10+'vw'; p.style.top=Math.random()*70+15+'vh'; fx.appendChild(p);
+        setTimeout(() => { fx.style.display='none'; document.body.classList.remove('shake-screen'); }, 800);
+    }
+    function closeReview() { document.getElementById('review-modal').style.display='none'; switchRound(curR); }
+    function speak(t) { synth.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang='en-US'; synth.speak(u); }
+    window.onload = init;
+</script>
+</body>
+</html>
